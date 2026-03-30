@@ -20,6 +20,8 @@ export interface User {
   name: string;
   role: Role;
   departmentId?: string;
+  serviceType?: ServiceType;
+  email?: string;
 }
 
 export interface Counter {
@@ -34,7 +36,7 @@ export interface Counter {
 
 export interface Ticket {
   id: string;
-  queueNumber: string; // e.g., MC-001, ISA-001
+  queueNumber: string; // e.g., M-001, I-001
   serviceType: ServiceType;
   status: TicketStatus;
   departmentId: string;

@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert } from 'lucide-react';
+import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -57,7 +57,7 @@ function AdminContent() {
             <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
             <p className="text-muted-foreground font-medium">This dashboard is restricted to system administrators.</p>
           </div>
-          <div className="pb-12 pt-6">
+          <div className="pb-16 pt-6">
             <Link href="/">
               <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
             </Link>
@@ -84,9 +84,17 @@ function AdminContent() {
               <Building size={16} /> Live Real-time Enrollment Overview
             </p>
           </div>
-          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
-            <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-            Live Sync Active
+          <div className="flex gap-4">
+            <Link href="/admin/assignments">
+              <Button variant="outline" className="rounded-xl border-2 font-bold gap-2">
+                <UsersRound size={18} />
+                Manage Staff Assignments
+              </Button>
+            </Link>
+            <div className="bg-white px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
+              <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+              Live Sync Active
+            </div>
           </div>
         </div>
 

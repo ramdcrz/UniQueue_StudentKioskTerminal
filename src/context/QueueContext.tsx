@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Department, Ticket, Counter, ServiceType, TicketStatus } from '@/lib/types';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser } from '@/lib/types';
 import { announceTicket } from '@/ai/flows/public-monitor-tts-announcements';
 import { 
   collection, 
@@ -12,6 +12,7 @@ import {
   updateDoc,
   query, 
   orderBy,
+  getDoc
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -23,6 +24,7 @@ interface QueueContextType {
   departments: Department[];
   counters: Counter[];
   tickets: Ticket[];
+  allUsers: AppUser[];
   currentDepartment: Department | null;
   setCurrentDepartment: (deptId: string) => void;
   createTicket: (serviceType: ServiceType) => Promise<Ticket>;
@@ -32,6 +34,7 @@ interface QueueContextType {
   setStaffCounter: (counterId: string | null) => void;
   staffAssignment: { deptId: string | null; serviceType: ServiceType | null };
   setStaffAssignment: (deptId: string | null, serviceType: ServiceType | null) => void;
+  updateUserAssignment: (userId: string, deptId: string | null, serviceType: ServiceType | null) => void;
   isUserLoading: boolean;
   loginWithGoogle: () => void;
   logout: () => void;
@@ -68,29 +71,61 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [departments] = useState<Department[]>(INITIAL_DEPARTMENTS);
   const [counters, setCounters] = useState<Counter[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [currentDeptId, setCurrentDeptId] = useState<string>('main');
   const [staffCounterId, setStaffCounterId] = useState<string | null>(null);
   
-  // Staff assignment tracking
-  const [staffAssignment, setAssignment] = useState<{ deptId: string | null; serviceType: ServiceType | null }>({
-    deptId: null,
-    serviceType: null
-  });
+  const [currentUserProfile, setCurrentUserProfile] = useState<AppUser | null>(null);
 
-  const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
-  const staffCounter = counters.find(c => c.id === staffCounterId) || null;
-  
   const isAdmin = !!user && !!user.email && ADMIN_EMAILS.includes(user.email);
   const isStaff = !!user && !!user.email && (STAFF_EMAILS.includes(user.email) || ADMIN_EMAILS.includes(user.email));
 
+  const staffAssignment = useMemo(() => ({
+    deptId: currentUserProfile?.departmentId || null,
+    serviceType: currentUserProfile?.serviceType || null
+  }), [currentUserProfile]);
+
+  const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
+  const staffCounter = counters.find(c => c.id === staffCounterId) || null;
+
+  // Anonymous sign in for kiosks/monitors
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
       initiateAnonymousSignIn(auth).catch(() => {});
     }
   }, [auth, user, isUserLoading]);
 
+  // Sync Current User Profile
+  useEffect(() => {
+    if (!db || !user?.uid) return;
+    const userRef = doc(db, 'users', user.uid);
+    return onSnapshot(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setCurrentUserProfile({ ...snapshot.data(), id: snapshot.id } as AppUser);
+      } else {
+        // Create profile if missing
+        const initialData = {
+          id: user.uid,
+          name: user.displayName || user.email?.split('@')[0] || 'Unknown',
+          role: isAdmin ? 'SUPERADMIN' : (isStaff ? 'STAFF' : 'KIOSK'),
+          email: user.email || ''
+        };
+        setDoc(userRef, initialData);
+      }
+    });
+  }, [db, user, isAdmin, isStaff]);
+
+  // Global Syncing
   useEffect(() => {
     if (!db || isUserLoading || !user) return;
+
+    // Sync all users for Admin
+    if (isAdmin) {
+      const usersRef = collection(db, 'users');
+      onSnapshot(usersRef, (snapshot) => {
+        setAllUsers(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as AppUser)));
+      });
+    }
 
     const unsubscribes = departments.map(dept => {
       const ticketsRef = collection(db, 'departments', dept.id, 'tickets');
@@ -124,7 +159,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubscribes.forEach(unsub => unsub());
       counterUnsubscribes.forEach(unsub => unsub());
     };
-  }, [db, departments, isUserLoading, user]);
+  }, [db, departments, isUserLoading, user, isAdmin]);
 
   const createTicket = async (serviceType: ServiceType) => {
     if (!db || !currentDepartment) throw new Error("Database not ready");
@@ -158,16 +193,13 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (status === 'CALLED') updates.calledAt = new Date().toISOString();
     if (status === 'COMPLETED' || status === 'NOSHOW') updates.completedAt = new Date().toISOString();
 
-    updateDoc(ticketRef, updates).catch(() => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: ticketRef.path, operation: 'update', requestResourceData: updates }));
-    });
+    updateDoc(ticketRef, updates);
 
     if (status === 'COMPLETED' || status === 'NOSHOW') {
       const counter = counters.find(c => c.currentTicketId === ticketId);
       if (counter) {
         const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
-        const counterUpdates = { status: 'VACANT', currentTicketId: null };
-        updateDoc(counterRef, counterUpdates);
+        updateDoc(counterRef, { status: 'VACANT', currentTicketId: null });
       }
     }
   };
@@ -178,20 +210,17 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!counter) return;
     
     const nextTicket = tickets.find(t => 
+      t.status === 'WAITING' && 
       t.departmentId === counter.departmentId && 
-      t.serviceType === counter.serviceType && 
-      t.status === 'WAITING'
+      t.serviceType === counter.serviceType
     );
 
     if (nextTicket) {
       const ticketRef = doc(db, 'departments', counter.departmentId, 'tickets', nextTicket.id);
       const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
       
-      const ticketUpdates = { status: 'CALLED', counterId: counter.id, calledAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-      const counterUpdates = { status: 'SERVING', currentTicketId: nextTicket.id };
-
-      updateDoc(ticketRef, ticketUpdates);
-      updateDoc(counterRef, counterUpdates);
+      updateDoc(ticketRef, { status: 'CALLED', counterId: counter.id, calledAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      updateDoc(counterRef, { status: 'SERVING', currentTicketId: nextTicket.id });
 
       announceTicket({
         ticketNumber: nextTicket.queueNumber,
@@ -208,18 +237,27 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setStaffAssignment = (deptId: string | null, serviceType: ServiceType | null) => {
-    setAssignment({ deptId, serviceType });
-    // When assignment changes, reset the specific counter ID to let the staff page re-select or prompt
+    if (!db || !user?.uid) return;
+    const userRef = doc(db, 'users', user.uid);
+    updateDoc(userRef, { 
+      departmentId: deptId || null, 
+      serviceType: serviceType || null 
+    });
     setStaffCounterId(null);
+  };
+
+  const updateUserAssignment = (userId: string, deptId: string | null, serviceType: ServiceType | null) => {
+    if (!db || !isAdmin) return;
+    const userRef = doc(db, 'users', userId);
+    updateDoc(userRef, { 
+      departmentId: deptId || null, 
+      serviceType: serviceType || null 
+    });
   };
 
   const loginWithGoogle = () => {
     if (auth) {
-      initiateGoogleSignIn(auth).catch((err) => {
-        if (err.code === 'auth/operation-not-allowed') {
-          console.error("Firebase Auth: Google provider not enabled.");
-        }
-      });
+      initiateGoogleSignIn(auth).catch(() => {});
     }
   };
   
@@ -227,10 +265,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <QueueContext.Provider value={{ 
-      departments, counters, tickets, currentDepartment, 
+      departments, counters, tickets, allUsers, currentDepartment, 
       setCurrentDepartment: setCurrentDeptId, createTicket, callNextTicket, updateTicketStatus,
       staffCounter, setStaffCounter: setStaffCounterId, staffAssignment, setStaffAssignment,
-      isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
+      updateUserAssignment, isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
     }}>
       {children}
     </QueueContext.Provider>
