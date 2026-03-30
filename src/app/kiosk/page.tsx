@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -53,9 +54,9 @@ function KioskContent() {
     }
   };
 
-  // QR Code URL includes departmentId and ticketId for direct lookup
-  const statusUrl = typeof window !== 'undefined' && lastTicket
-    ? `${window.location.origin}/status/${lastTicket.departmentId}/${lastTicket.id}` 
+  // Simplified status URL using the unique ticket ID
+  const statusUrl = typeof window !== 'undefined' && lastTicket?.id
+    ? `${window.location.origin}/status/${lastTicket.id}` 
     : '';
 
   return (

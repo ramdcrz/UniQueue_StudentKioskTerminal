@@ -7,14 +7,11 @@ import { announceTicket } from '@/ai/flows/public-monitor-tts-announcements';
 import { 
   collection, 
   onSnapshot, 
-  addDoc, 
-  updateDoc, 
   doc, 
+  setDoc,
+  updateDoc,
   query, 
-  where,
   orderBy,
-  Firestore,
-  CollectionReference
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
@@ -32,6 +29,7 @@ interface QueueContextType {
   updateTicketStatus: (ticketId: string, status: TicketStatus, departmentId?: string) => void;
   staffCounter: Counter | null;
   setStaffCounter: (counterId: string) => void;
+  isUserLoading: boolean;
 }
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
@@ -64,14 +62,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
 
-  // Ensure user is signed in (anonymously if needed)
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
       signInAnonymously(auth).catch(() => {});
     }
   }, [auth, user, isUserLoading]);
 
-  // Set up real-time listeners for tickets, but only after auth is resolved
   useEffect(() => {
     if (!db || isUserLoading) return;
 
@@ -115,6 +111,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const prefix = serviceType === 'CASHIER' ? 'C' : 'A';
     const num = (deptTickets.length + 1).toString().padStart(3, '0');
     
+    // Pre-generate the document reference to get the ID immediately
+    const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
+    const newDocRef = doc(ticketsRef);
+    
     const ticketData = {
       queueNumber: `${prefix}-${num}`,
       serviceType,
@@ -123,18 +123,17 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
     };
 
-    const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
-    
-    addDoc(ticketsRef, ticketData).catch(async () => {
+    // Use setDoc to save with our pre-generated ID
+    setDoc(newDocRef, ticketData).catch(async () => {
       const permissionError = new FirestorePermissionError({
-        path: ticketsRef.path,
+        path: newDocRef.path,
         operation: 'create',
         requestResourceData: ticketData,
       });
       errorEmitter.emit('permission-error', permissionError);
     });
 
-    return { ...ticketData, id: 'temp-id-' + Date.now() };
+    return { ...ticketData, id: newDocRef.id };
   };
 
   const updateTicketStatus = (ticketId: string, status: TicketStatus, departmentId?: string) => {
@@ -220,7 +219,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       callNextTicket,
       updateTicketStatus,
       staffCounter,
-      setStaffCounter: setStaffCounterId
+      setStaffCounter: setStaffCounterId,
+      isUserLoading
     }}>
       {children}
     </QueueContext.Provider>
