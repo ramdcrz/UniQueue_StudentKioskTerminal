@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,20 +16,28 @@ function MonitorContent() {
   const [time, setTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Set initial time on mount
+    // Set initial time on mount to avoid hydration mismatch
     setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const currentlyServing = tickets
-    .filter(t => t.status === 'CALLED' || t.status === 'SERVING')
-    .slice(0, 4);
+  const currentlyServing = useMemo(() => {
+    return tickets
+      .filter(t => t.status === 'CALLED' || t.status === 'SERVING')
+      .slice(0, 4);
+  }, [tickets]);
   
-  const history = tickets
-    .filter(t => t.status === 'COMPLETED' || t.status === 'NOSHOW')
-    .sort((a, b) => new Date(b.completedAt || '').getTime() - new Date(a.completedAt || '').getTime())
-    .slice(0, 5);
+  const history = useMemo(() => {
+    return tickets
+      .filter(t => t.status === 'COMPLETED' || t.status === 'NOSHOW')
+      .sort((a, b) => {
+        const timeA = new Date(a.completedAt || a.updatedAt || 0).getTime();
+        const timeB = new Date(b.completedAt || b.updatedAt || 0).getTime();
+        return timeB - timeA;
+      })
+      .slice(0, 5);
+  }, [tickets]);
 
   return (
     <div className="h-screen bg-[#F4F4F7] p-8 overflow-hidden flex flex-col space-y-6">
@@ -63,7 +72,7 @@ function MonitorContent() {
         {/* Left: Now Serving (70%) */}
         <div className="col-span-7 space-y-6">
           <div className="grid grid-cols-2 gap-6 h-full">
-            <AnimatePresence>
+            <AnimatePresence mode="popLayout">
               {currentlyServing.length > 0 ? (
                 currentlyServing.map((ticket, idx) => {
                   const counter = counters.find(c => c.id === ticket.counterId);
@@ -84,7 +93,7 @@ function MonitorContent() {
                       </div>
                       <div className="w-full h-[2px] bg-border/50 my-4" />
                       <div className="text-4xl font-extrabold text-success uppercase">
-                        Counter {counter?.counterNumber || idx + 1}
+                        Counter {counter?.counterNumber || '...'}
                       </div>
                     </motion.div>
                   );
@@ -107,18 +116,19 @@ function MonitorContent() {
             RECENTLY CALLED
           </h2>
           <div className="flex-1 space-y-4 overflow-hidden">
-            <AnimatePresence>
+            <AnimatePresence mode="popLayout">
               {history.map((t) => (
                 <motion.div
                   key={t.id}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
+                  layout
                   className="bg-white/50 p-4 rounded-2xl flex justify-between items-center border border-white/40 shadow-sm"
                 >
                   <div className="text-3xl font-bold jet-mono text-secondary">
                     {t.queueNumber}
                   </div>
-                  <div className="text-sm font-black text-muted-foreground bg-muted px-3 py-1 rounded-lg uppercase">
+                  <div className={`text-sm font-black px-3 py-1 rounded-lg uppercase ${t.status === 'NOSHOW' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
                     {t.status}
                   </div>
                 </motion.div>

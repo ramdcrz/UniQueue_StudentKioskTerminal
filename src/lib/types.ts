@@ -1,3 +1,4 @@
+
 export type Role = 'SUPERADMIN' | 'DEPTADMIN' | 'STAFF' | 'KIOSK' | 'MONITOR';
 
 export type ServiceType = 'CASHIER' | 'ACCOUNTING';
@@ -26,7 +27,7 @@ export interface Counter {
   serviceType: ServiceType;
   status: CounterStatus;
   assignedStaffId?: string;
-  currentTicketId?: string;
+  currentTicketId?: string | null;
 }
 
 export interface Ticket {
@@ -37,6 +38,7 @@ export interface Ticket {
   departmentId: string;
   counterId?: string;
   createdAt: string;
+  updatedAt: string;
   calledAt?: string;
   servedAt?: string;
   completedAt?: string;
