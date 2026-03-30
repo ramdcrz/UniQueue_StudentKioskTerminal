@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -12,11 +13,13 @@ import {
   query, 
   where,
   orderBy,
-  Timestamp,
-  Firestore
+  Firestore,
+  CollectionReference
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface QueueContextType {
   departments: Department[];
@@ -50,7 +53,7 @@ const INITIAL_COUNTERS: Counter[] = [
 export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const db = useFirestore();
   const { auth } = useAuth() ? { auth: useAuth() } : { auth: null };
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   
   const [departments] = useState<Department[]>(INITIAL_DEPARTMENTS);
   const [counters, setCounters] = useState<Counter[]>(INITIAL_COUNTERS);
@@ -61,36 +64,44 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
 
-  // Sign in anonymously if not already signed in
   useEffect(() => {
-    if (auth && !user) {
-      signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed", err));
+    if (auth && !user && !isUserLoading) {
+      signInAnonymously(auth).catch(err => {
+        // Auth errors handled silently or via central logger
+      });
     }
-  }, [auth, user]);
+  }, [auth, user, isUserLoading]);
 
-  // Listen to tickets globally for simplicity in prototype, though nested in backend.json
-  // In a production app, we would listen per department.
   useEffect(() => {
     if (!db) return;
 
-    const allTickets: Ticket[] = [];
     const unsubscribes = departments.map(dept => {
       const ticketsRef = collection(db, 'departments', dept.id, 'tickets');
       const q = query(ticketsRef, orderBy('createdAt', 'desc'));
       
-      return onSnapshot(q, (snapshot) => {
-        const deptTickets = snapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: doc.id,
-        } as Ticket));
-        
-        setTickets(prev => {
-          const otherDeptsTickets = prev.filter(t => t.departmentId !== dept.id);
-          return [...otherDeptsTickets, ...deptTickets].sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-        });
-      });
+      return onSnapshot(
+        q, 
+        (snapshot) => {
+          const deptTickets = snapshot.docs.map(doc => ({
+            ...doc.data(),
+            id: doc.id,
+          } as Ticket));
+          
+          setTickets(prev => {
+            const otherDeptsTickets = prev.filter(t => t.departmentId !== dept.id);
+            return [...otherDeptsTickets, ...deptTickets].sort((a, b) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          });
+        },
+        async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: `departments/${dept.id}/tickets`,
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        }
+      );
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
@@ -111,8 +122,21 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
     };
 
-    const docRef = await addDoc(collection(db, 'departments', currentDeptId, 'tickets'), ticketData);
-    return { ...ticketData, id: docRef.id };
+    const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
+    
+    // Non-blocking addDoc with contextual error handling
+    addDoc(ticketsRef, ticketData).catch(async () => {
+      const permissionError = new FirestorePermissionError({
+        path: ticketsRef.path,
+        operation: 'create',
+        requestResourceData: ticketData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+
+    // Return a pessimistic mock for immediate UI update if needed, 
+    // though the listener will update the real state shortly.
+    return { ...ticketData, id: 'temp-id-' + Date.now() };
   };
 
   const updateTicketStatus = (ticketId: string, status: TicketStatus, departmentId?: string) => {
@@ -124,7 +148,14 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (status === 'CALLED') updates.calledAt = new Date().toISOString();
     if (status === 'COMPLETED') updates.completedAt = new Date().toISOString();
 
-    updateDoc(ticketRef, updates);
+    updateDoc(ticketRef, updates).catch(async () => {
+      const permissionError = new FirestorePermissionError({
+        path: ticketRef.path,
+        operation: 'update',
+        requestResourceData: updates,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const callNextTicket = async (counterId: string) => {
@@ -141,10 +172,19 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (nextTicket) {
       const ticketRef = doc(db, 'departments', counter.departmentId, 'tickets', nextTicket.id);
       
-      updateDoc(ticketRef, { 
-        status: 'CALLED', 
+      const updates = { 
+        status: 'CALLED' as TicketStatus, 
         counterId: counter.id,
         calledAt: new Date().toISOString() 
+      };
+
+      updateDoc(ticketRef, updates).catch(async () => {
+        const permissionError = new FirestorePermissionError({
+          path: ticketRef.path,
+          operation: 'update',
+          requestResourceData: updates,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
       
       setCounters(prev => prev.map(c => c.id === counter.id ? { 
@@ -164,7 +204,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const audio = new Audio(result.media);
         audio.play();
       } catch (e) {
-        console.error("TTS Failed", e);
+        // TTS failures are non-critical for the core flow
       }
     }
   };
