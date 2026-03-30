@@ -18,7 +18,6 @@ function AdminContent() {
     const waiting = tickets.filter(t => t.status === 'WAITING').length;
     const noShow = tickets.filter(t => t.status === 'NOSHOW').length;
 
-    // Calculate Average Wait Time
     const servedTickets = tickets.filter(t => t.status === 'SERVING' || t.status === 'COMPLETED');
     const totalWaitMs = servedTickets.reduce((acc, t) => {
       if (t.calledAt) {
@@ -28,7 +27,6 @@ function AdminContent() {
     }, 0);
     const avgWaitMins = servedTickets.length > 0 ? (totalWaitMs / servedTickets.length / 60000).toFixed(1) : '0';
 
-    // Bucket Volume by Hour
     const hourlyData: Record<string, number> = {};
     tickets.forEach(t => {
       const hour = new Date(t.createdAt).getHours();
@@ -44,7 +42,7 @@ function AdminContent() {
   }, [tickets]);
 
   if (isUserLoading) {
-    return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">Loading...</div>;
+    return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8 font-bold">Loading system analytics...</div>;
   }
 
   if (!isAdmin) {
@@ -58,9 +56,11 @@ function AdminContent() {
             <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
             <p className="text-muted-foreground font-medium">This dashboard is restricted to system administrators.</p>
           </div>
-          <Link href="/">
-            <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
-          </Link>
+          <div className="pb-4">
+            <Link href="/">
+              <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
+            </Link>
+          </div>
         </Card>
       </div>
     );
@@ -78,20 +78,20 @@ function AdminContent() {
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex justify-between items-end">
           <div className="space-y-1">
-            <h1 className="text-3xl font-black text-secondary uppercase tracking-tight">University Dashboard</h1>
+            <h1 className="text-3xl font-black text-secondary uppercase tracking-tight">University Analytics</h1>
             <p className="text-muted-foreground font-semibold flex items-center gap-2">
-              <Building size={16} /> Global Enrollment System Overview
+              <Building size={16} /> Live Real-time Enrollment Overview
             </p>
           </div>
           <div className="bg-white px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
             <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-            Live Analytics Active
+            Live Sync Active
           </div>
         </div>
 
         <div className="grid grid-cols-4 gap-6">
           {stats.map((stat, i) => (
-            <Card key={i} className="border-none glass rounded-[2rem] shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+            <Card key={i} className="border-none glass rounded-[2rem] shadow-sm hover:shadow-md transition-shadow group">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
                   <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
@@ -110,21 +110,13 @@ function AdminContent() {
 
         <div className="grid grid-cols-12 gap-8">
           <Card className="col-span-8 border-none liquid-glass rounded-[2.5rem] shadow-lg p-8">
-            <CardHeader className="p-0 mb-8 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-black text-secondary uppercase">Hourly Volume</CardTitle>
-                <p className="text-sm text-muted-foreground font-medium">Real-time student traffic distribution</p>
-              </div>
+            <CardHeader className="p-0 mb-8">
+              <CardTitle className="text-xl font-black text-secondary uppercase">Hourly Distribution</CardTitle>
+              <p className="text-sm text-muted-foreground font-medium">Historical traffic trends for today</p>
             </CardHeader>
             <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analytics.chartData}>
-                  <defs>
-                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#1856FF" stopOpacity={0.8}/>
-                      <stop offset="100%" stopColor="#1856FF" stopOpacity={0.2}/>
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                   <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748B' }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748B' }} />
@@ -132,7 +124,7 @@ function AdminContent() {
                     cursor={{ fill: 'rgba(24, 86, 255, 0.05)' }}
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontWeight: 800 }}
                   />
-                  <Bar dataKey="volume" fill="url(#barGradient)" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="volume" fill="#1856FF" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -142,7 +134,7 @@ function AdminContent() {
             <Card className="border-none glass rounded-[2.5rem] shadow-sm p-8">
               <h3 className="text-lg font-black text-secondary uppercase mb-6">By Building</h3>
               <div className="space-y-6">
-                {departments.map((dept, i) => {
+                {departments.map((dept) => {
                   const deptTickets = tickets.filter(t => t.departmentId === dept.id).length;
                   const percentage = analytics.total > 0 ? (deptTickets / analytics.total) * 100 : 0;
                   return (
@@ -160,15 +152,9 @@ function AdminContent() {
               </div>
             </Card>
 
-            <Card className="border-none bg-primary rounded-[2.5rem] shadow-xl p-8 text-white">
-              <h3 className="text-lg font-black uppercase mb-2">Sync Status</h3>
-              <p className="text-sm font-medium text-white/70 mb-6">Real-time cloud database connection is healthy</p>
-              <div className="flex items-center gap-4">
-                <div className="flex-1 h-1 bg-white/20 rounded-full">
-                  <div className="h-full bg-white w-[100%] rounded-full" />
-                </div>
-                <span className="text-xs font-black">Connected</span>
-              </div>
+            <Card className="border-none bg-secondary rounded-[2.5rem] shadow-xl p-8 text-white">
+              <h3 className="text-lg font-black uppercase mb-2">System Status</h3>
+              <p className="text-sm font-medium text-white/70">Database connectivity is operational. All departments are syncing correctly.</p>
             </Card>
           </div>
         </div>

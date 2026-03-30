@@ -3,15 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * UniQueue Security Rules
-     * 
-     * Security is driven by the user's document state and a dedicated superadmin collection.
-     * We've also whitelisted specific institutional emails for Admin access.
-     */
-
-    // --- Helper Functions ---
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -29,47 +20,30 @@ service cloud.firestore {
       );
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // --- Collection Rules ---
-
     match /roles_superadmin/{userId} {
       allow get: if isSignedIn();
-      allow list: if isSuperadmin();
-      allow create, update, delete: if isSuperadmin();
+      allow list, write: if isSuperadmin();
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isSuperadmin();
+      allow get, update: if request.auth.uid == userId || isSuperadmin();
       allow list: if isSuperadmin();
-      allow create: if isOwner(userId) || isSuperadmin();
-      allow update: if isOwner(userId) || isSuperadmin();
+      allow create: if isSignedIn();
       allow delete: if isSuperadmin();
     }
 
     match /departments/{departmentId} {
-      // Departments are public so students can browse services
       allow read: if true;
-      allow create, update, delete: if isSuperadmin();
+      allow write: if isSuperadmin();
     }
 
     match /departments/{departmentId}/counters/{counterId} {
-      // Public monitor needs to see counter status
       allow read: if true;
-      // Allow signed in users (Staff/Admin) to manage counters
       allow write: if isSignedIn();
     }
 
     match /departments/{departmentId}/tickets/{ticketId} {
-      // Public monitor and student mobile tracking need public access
       allow read: if true;
-      // Allow signed in users (Kiosks/Staff/Students) to manage tickets
       allow write: if isSignedIn();
     }
   }
