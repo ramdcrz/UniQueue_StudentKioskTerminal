@@ -151,16 +151,15 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const createTicket = async (serviceType: ServiceType) => {
     if (!db || !currentDepartment) throw new Error("Database or Department not ready");
 
-    // Filter by department and service type to get the next number
-    const deptTickets = tickets.filter(t => t.departmentId === currentDeptId && t.serviceType === serviceType);
-    const serviceChar = serviceType === 'CASHIER' ? 'C' : 'A';
+    // Use a building-wide sequence to avoid overlapping numbers between services
+    const deptTickets = tickets.filter(t => t.departmentId === currentDeptId);
     const num = (deptTickets.length + 1).toString().padStart(3, '0');
     
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     
     const ticketData = {
-      queueNumber: `${currentDepartment.code}${serviceChar}-${num}`,
+      queueNumber: `${currentDepartment.code}-${num}`,
       serviceType,
       status: 'WAITING' as TicketStatus,
       departmentId: currentDeptId,
@@ -168,7 +167,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updatedAt: new Date().toISOString(),
     };
 
-    // Non-blocking write
     setDoc(newDocRef, ticketData).catch(async () => {
       const permissionError = new FirestorePermissionError({
         path: newDocRef.path,
@@ -205,7 +203,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       errorEmitter.emit('permission-error', permissionError);
     });
 
-    // Also clear counter if ticket is finished
     if (status === 'COMPLETED' || status === 'NOSHOW') {
       const counter = counters.find(c => c.currentTicketId === ticketId);
       if (counter) {
@@ -253,7 +250,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentTicketId: nextTicket.id
       };
 
-      // Update Ticket
       updateDoc(ticketRef, ticketUpdates).catch(async () => {
         const permissionError = new FirestorePermissionError({
           path: ticketRef.path,
@@ -263,7 +259,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         errorEmitter.emit('permission-error', permissionError);
       });
       
-      // Update Counter
       updateDoc(counterRef, counterUpdates).catch(async () => {
         const permissionError = new FirestorePermissionError({
           path: counterRef.path,
@@ -273,11 +268,9 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         errorEmitter.emit('permission-error', permissionError);
       });
 
-      // Voice announcement (Non-blocking playback)
-      const dept = departments.find(d => d.id === counter.departmentId);
       announceTicket({
         ticketNumber: nextTicket.queueNumber,
-        departmentName: dept?.name || "University",
+        departmentName: INITIAL_DEPARTMENTS.find(d => d.id === counter.departmentId)?.name || "University",
         serviceType: nextTicket.serviceType,
         counterNumber: counter.counterNumber,
       }).then(result => {
