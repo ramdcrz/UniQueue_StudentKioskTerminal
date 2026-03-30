@@ -22,12 +22,14 @@ function MonitorContent() {
   }, []);
 
   const currentlyServing = useMemo(() => {
+    // Only show tickets for the selected department that are currently CALLED or SERVING
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'CALLED' || t.status === 'SERVING'))
       .slice(0, 4);
   }, [tickets, currentDepartment]);
   
   const history = useMemo(() => {
+    // Only show historical tickets for the selected department
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'COMPLETED' || t.status === 'NOSHOW'))
       .sort((a, b) => {
@@ -74,7 +76,7 @@ function MonitorContent() {
             <AnimatePresence mode="popLayout">
               {currentlyServing.length > 0 ? (
                 currentlyServing.map((ticket) => {
-                  const counter = counters.find(c => c.id === ticket.counterId);
+                  const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
                   return (
                     <motion.div
                       key={ticket.id}
@@ -135,15 +137,15 @@ function MonitorContent() {
             </AnimatePresence>
           </div>
           
-          {/* Dept Switcher for Monitor Demo */}
-          <div className="mt-6 pt-6 border-t border-border/50 flex flex-wrap gap-1 justify-center">
+          {/* Dept Switcher for Monitor Demo using standardized acronyms */}
+          <div className="mt-6 pt-6 border-t border-border/50 flex flex-wrap gap-2 justify-center">
             {departments.map(d => (
               <button 
                 key={d.id}
                 onClick={() => setCurrentDepartment(d.id)}
-                className={`px-2 py-1 text-[8px] font-bold rounded-full border transition-all uppercase ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground border-border'}`}
+                className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all uppercase shadow-sm ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground border-border'}`}
               >
-                {d.name.split(' ')[0]}
+                {d.acronym}
               </button>
             ))}
           </div>

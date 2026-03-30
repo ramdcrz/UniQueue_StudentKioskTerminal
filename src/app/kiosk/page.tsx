@@ -54,7 +54,7 @@ function KioskContent() {
     }
   };
 
-  // Simplified status URL using the unique ticket ID
+  // Status URL using the unique ticket ID for tracking
   const statusUrl = typeof window !== 'undefined' && lastTicket?.id
     ? `${window.location.origin}/status/${lastTicket.id}` 
     : '';
@@ -179,15 +179,15 @@ function KioskContent() {
           </div>
         </Card>
 
-        {/* Dept Switcher for Demo */}
+        {/* Dept Switcher for Demo using standardized acronyms */}
         <div className="mt-8 flex justify-center space-x-2">
           {departments.map(d => (
             <button 
               key={d.id}
               onClick={() => { setCurrentDepartment(d.id); setStep('welcome'); }}
-              className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all uppercase tracking-tighter ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground border-border hover:bg-gray-50'}`}
+              className={`px-4 py-2 text-[10px] font-bold rounded-full border transition-all uppercase tracking-tighter shadow-sm ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground border-border hover:bg-gray-50'}`}
             >
-              {d.name.split(' ')[0]}
+              {d.acronym}
             </button>
           ))}
         </div>

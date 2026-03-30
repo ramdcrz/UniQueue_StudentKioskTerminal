@@ -12,7 +12,6 @@ import {
   updateDoc,
   query, 
   orderBy,
-  Firestore,
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
@@ -36,10 +35,10 @@ interface QueueContextType {
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
 
 const INITIAL_DEPARTMENTS: Department[] = [
-  { id: 'main', name: 'Main Building', hasAccounting: true },
-  { id: 'is', name: 'Information Systems', hasAccounting: false },
-  { id: 'som', name: 'School of Management', hasAccounting: false },
-  { id: 'psb', name: 'Professional Schools Building', hasAccounting: false },
+  { id: 'main', name: 'Main Building', acronym: 'Main', code: 'M', hasAccounting: true },
+  { id: 'is', name: 'Integrated School', acronym: 'IS', code: 'IS', hasAccounting: false },
+  { id: 'som', name: 'School of Management', acronym: 'SOM', code: 'SOM', hasAccounting: false },
+  { id: 'psb', name: 'Professional Schools Building', acronym: 'PSB', code: 'PSB', hasAccounting: false },
 ];
 
 const INITIAL_COUNTERS: Counter[] = [
@@ -121,12 +120,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             id: doc.id,
           } as Counter));
           
-          if (deptCounters.length > 0) {
-            setCounters(prev => {
-              const otherDeptsCounters = prev.filter(c => c.departmentId !== dept.id);
-              return [...otherDeptsCounters, ...deptCounters];
-            });
-          }
+          setCounters(prev => {
+            const otherDeptsCounters = prev.filter(c => c.departmentId !== dept.id);
+            return [...otherDeptsCounters, ...deptCounters];
+          });
         },
         async (error) => {
           const permissionError = new FirestorePermissionError({
@@ -152,17 +149,18 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [db, isUserLoading, user]);
 
   const createTicket = async (serviceType: ServiceType) => {
-    if (!db || !currentDeptId) throw new Error("Database or Department not ready");
+    if (!db || !currentDepartment) throw new Error("Database or Department not ready");
 
+    // Filter by department and service type to get the next number
     const deptTickets = tickets.filter(t => t.departmentId === currentDeptId && t.serviceType === serviceType);
-    const prefix = serviceType === 'CASHIER' ? 'C' : 'A';
+    const serviceChar = serviceType === 'CASHIER' ? 'C' : 'A';
     const num = (deptTickets.length + 1).toString().padStart(3, '0');
     
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     
     const ticketData = {
-      queueNumber: `${prefix}-${num}`,
+      queueNumber: `${currentDepartment.code}${serviceChar}-${num}`,
       serviceType,
       status: 'WAITING' as TicketStatus,
       departmentId: currentDeptId,
@@ -170,6 +168,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updatedAt: new Date().toISOString(),
     };
 
+    // Non-blocking write
     setDoc(newDocRef, ticketData).catch(async () => {
       const permissionError = new FirestorePermissionError({
         path: newDocRef.path,

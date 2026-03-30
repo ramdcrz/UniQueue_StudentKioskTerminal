@@ -10,6 +10,8 @@ export type CounterStatus = 'ONLINE' | 'OFFLINE' | 'SERVING' | 'VACANT';
 export interface Department {
   id: string;
   name: string;
+  acronym: string;
+  code: string;
   hasAccounting: boolean;
 }
 
@@ -32,7 +34,7 @@ export interface Counter {
 
 export interface Ticket {
   id: string;
-  queueNumber: string; // e.g., C-001, A-001
+  queueNumber: string; // e.g., MC-001, ISA-001
   serviceType: ServiceType;
   status: TicketStatus;
   departmentId: string;

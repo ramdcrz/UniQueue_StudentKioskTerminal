@@ -14,7 +14,7 @@ import {googleAI} from '@genkit-ai/google-genai';
 import wav from 'wav';
 
 const PublicMonitorTTSAnnouncementsInputSchema = z.object({
-  ticketNumber: z.string().describe('The ticket number being called (e.g., C-012).'),
+  ticketNumber: z.string().describe('The ticket number being called (e.g., MC-012).'),
   departmentName: z.string().describe('The name of the department the counter belongs to (e.g., Main Building).'),
   serviceType: z.string().describe('The type of service (e.g., Cashier, Accounting).'),
   counterNumber: z.number().describe('The number of the counter the ticket is called to.'),
@@ -41,9 +41,8 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
   async input => {
     const {ticketNumber, counterNumber} = input;
     
-    // Using punctuation and spacing to naturally slow down the TTS model
-    // Added explicit instruction to speak clearly and slowly
-    const announcementText = `Number. . . ${ticketNumber}. . . Proceed to. . . Counter. . . ${counterNumber}.`;
+    // Pacing the announcement with extra pauses to ensure it's spoken slowly and clearly
+    const announcementText = `Number . . . ${ticketNumber} . . . Proceed to . . . Counter . . . ${counterNumber}.`;
 
     const {media} = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
@@ -55,7 +54,7 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
           },
         },
       },
-      prompt: `Speak the following text clearly and slowly with natural pauses: ${announcementText}`,
+      prompt: `Speak this announcement clearly and very slowly, with significant pauses between words: ${announcementText}`,
     });
 
     if (!media) {
