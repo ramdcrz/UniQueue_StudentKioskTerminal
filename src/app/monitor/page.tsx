@@ -6,11 +6,17 @@ import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Volume2 } from 'lucide-react';
 
+/**
+ * Public monitor view for waiting areas.
+ * Displays currently serving tickets and recently called ones.
+ */
 function MonitorContent() {
   const { tickets, counters, currentDepartment } = useQueue();
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Set initial time on mount
+    setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
@@ -44,10 +50,10 @@ function MonitorContent() {
         </div>
         <div className="text-right">
           <div className="text-4xl font-bold jet-mono text-secondary">
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
           </div>
           <div className="text-sm font-bold text-muted-foreground uppercase">
-            {time.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+            {time ? time.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : 'Loading...'}
           </div>
         </div>
       </div>
@@ -113,7 +119,7 @@ function MonitorContent() {
                     {t.queueNumber}
                   </div>
                   <div className="text-sm font-black text-muted-foreground bg-muted px-3 py-1 rounded-lg uppercase">
-                    COMPLETED
+                    {t.status}
                   </div>
                 </motion.div>
               ))}
