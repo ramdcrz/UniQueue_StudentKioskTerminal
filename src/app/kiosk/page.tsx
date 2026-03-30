@@ -6,7 +6,7 @@ import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Receipt, Building2, Camera } from 'lucide-react';
+import { CreditCard, Receipt, Building2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 function KioskContent() {
@@ -51,7 +51,7 @@ function KioskContent() {
   };
 
   const statusUrl = typeof window !== 'undefined' && lastTicket?.id
-    ? `${window.location.origin}/track/${lastTicket.id}` 
+    ? `${window.location.origin}/status/${lastTicket.departmentId}/${lastTicket.id}` 
     : '';
 
   return (
