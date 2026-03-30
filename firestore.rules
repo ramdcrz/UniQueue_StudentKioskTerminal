@@ -7,8 +7,7 @@ service cloud.firestore {
      * UniQueue Security Rules
      * 
      * Security is driven by the user's document state and a dedicated superadmin collection.
-     * For the prototype, we allow signed-in users (including anonymous staff) to manage 
-     * tickets and counters to ensure a smooth demo experience.
+     * We've also whitelisted specific institutional emails for Admin access.
      */
 
     // --- Helper Functions ---
@@ -18,7 +17,15 @@ service cloud.firestore {
     }
 
     function isSuperadmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_superadmin/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/roles_superadmin/$(request.auth.uid)) ||
+        (request.auth.token.email_verified && request.auth.token.email in [
+          'ramiljr.deocariza@neu.edu.ph',
+          'djemandreif.reyes@neu.edu.ph',
+          'johnmarc.sanchez@neu.edu.ph',
+          'jermainecarl.miranda@neu.edu.ph'
+        ])
+      );
     }
 
     function getUserData() {
@@ -27,14 +34,6 @@ service cloud.firestore {
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function belongsToDept(deptId) {
-      return isSignedIn() && (isSuperadmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().departmentId == deptId));
-    }
-
-    function hasRole(role) {
-      return isSignedIn() && (isSuperadmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == role));
     }
 
     // --- Collection Rules ---
@@ -62,14 +61,14 @@ service cloud.firestore {
     match /departments/{departmentId}/counters/{counterId} {
       // Public monitor needs to see counter status
       allow read: if true;
-      // Allow signed in users to manage counters for prototype demo
+      // Allow signed in users to manage counters
       allow write: if isSignedIn();
     }
 
     match /departments/{departmentId}/tickets/{ticketId} {
       // Public monitor and student mobile tracking need public access
       allow read: if true;
-      // Allow signed in users (Kiosks/Staff) to manage tickets
+      // Allow signed in users (Kiosks/Staff/Students) to manage tickets
       allow write: if isSignedIn();
     }
   }

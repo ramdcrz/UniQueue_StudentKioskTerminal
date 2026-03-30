@@ -14,7 +14,8 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, signOut } from 'firebase/auth';
+import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -30,6 +31,9 @@ interface QueueContextType {
   staffCounter: Counter | null;
   setStaffCounter: (counterId: string) => void;
   isUserLoading: boolean;
+  loginWithGoogle: () => void;
+  logout: () => void;
+  isAdmin: boolean;
 }
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
@@ -48,6 +52,13 @@ const INITIAL_COUNTERS: Counter[] = [
   { id: 'c4', departmentId: 'is', counterNumber: 1, serviceType: 'CASHIER', status: 'VACANT' },
 ];
 
+const ADMIN_EMAILS = [
+  'ramiljr.deocariza@neu.edu.ph',
+  'djemandreif.reyes@neu.edu.ph',
+  'johnmarc.sanchez@neu.edu.ph',
+  'jermainecarl.miranda@neu.edu.ph'
+];
+
 export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const db = useFirestore();
   const auth = useAuth();
@@ -61,6 +72,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
+  const isAdmin = !!user && user.emailVerified && !!user.email && ADMIN_EMAILS.includes(user.email);
 
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
@@ -68,7 +80,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [auth, user, isUserLoading]);
 
-  // Sync Tickets from Firestore
   useEffect(() => {
     if (!db || isUserLoading || !user) return;
 
@@ -76,72 +87,45 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const ticketsRef = collection(db, 'departments', dept.id, 'tickets');
       const q = query(ticketsRef, orderBy('createdAt', 'desc'));
       
-      return onSnapshot(
-        q, 
-        (snapshot) => {
-          const deptTickets = snapshot.docs.map(doc => ({
-            ...doc.data(),
-            id: doc.id,
-          } as Ticket));
-          
-          setTickets(prev => {
-            const otherDeptsTickets = prev.filter(t => t.departmentId !== dept.id);
-            const combined = [...otherDeptsTickets, ...deptTickets];
-            return combined.sort((a, b) => 
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
-          });
-        },
-        async (error) => {
-          const permissionError = new FirestorePermissionError({
-            path: `departments/${dept.id}/tickets`,
-            operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        }
-      );
+      return onSnapshot(q, (snapshot) => {
+        const deptTickets = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ticket));
+        setTickets(prev => {
+          const otherDeptsTickets = prev.filter(t => t.departmentId !== dept.id);
+          const combined = [...otherDeptsTickets, ...deptTickets];
+          return combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        });
+      }, async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `departments/${dept.id}/tickets`,
+          operation: 'list',
+        }));
+      });
     });
 
-    return () => unsubscribes.forEach(unsub => unsub());
-  }, [db, departments, isUserLoading, user]);
-
-  // Sync Counters from Firestore
-  useEffect(() => {
-    if (!db || isUserLoading || !user) return;
-
-    const unsubscribes = departments.map(dept => {
+    const counterUnsubscribes = departments.map(dept => {
       const countersRef = collection(db, 'departments', dept.id, 'counters');
-      
-      return onSnapshot(
-        countersRef, 
-        (snapshot) => {
-          const deptCounters = snapshot.docs.map(doc => ({
-            ...doc.data(),
-            id: doc.id,
-          } as Counter));
-          
-          setCounters(prev => {
-            const otherDeptsCounters = prev.filter(c => c.departmentId !== dept.id);
-            return [...otherDeptsCounters, ...deptCounters];
-          });
-        },
-        async (error) => {
-          const permissionError = new FirestorePermissionError({
-            path: `departments/${dept.id}/counters`,
-            operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        }
-      );
+      return onSnapshot(countersRef, (snapshot) => {
+        const deptCounters = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Counter));
+        setCounters(prev => {
+          const otherDeptsCounters = prev.filter(c => c.departmentId !== dept.id);
+          return [...otherDeptsCounters, ...deptCounters];
+        });
+      }, async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `departments/${dept.id}/counters`,
+          operation: 'list',
+        }));
+      });
     });
 
-    return () => unsubscribes.forEach(unsub => unsub());
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+      counterUnsubscribes.forEach(unsub => unsub());
+    };
   }, [db, departments, isUserLoading, user]);
 
-  // Seed counters if they don't exist (Prototype Helper)
   useEffect(() => {
     if (!db || isUserLoading || !user) return;
-    
     INITIAL_COUNTERS.forEach(counter => {
       const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
       setDoc(counterRef, counter, { merge: true }).catch(() => {});
@@ -150,14 +134,9 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const createTicket = async (serviceType: ServiceType) => {
     if (!db || !currentDepartment) throw new Error("Database or Department not ready");
-
-    // Use a building-wide sequence to avoid overlapping numbers between services
-    const deptTickets = tickets.filter(t => t.departmentId === currentDeptId);
-    const num = (deptTickets.length + 1).toString().padStart(3, '0');
-    
+    const num = (tickets.filter(t => t.departmentId === currentDeptId).length + 1).toString().padStart(3, '0');
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
-    
     const ticketData = {
       queueNumber: `${currentDepartment.code}-${num}`,
       serviceType,
@@ -166,16 +145,13 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-
     setDoc(newDocRef, ticketData).catch(async () => {
-      const permissionError = new FirestorePermissionError({
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: newDocRef.path,
         operation: 'create',
         requestResourceData: ticketData,
-      });
-      errorEmitter.emit('permission-error', permissionError);
+      }));
     });
-
     return { ...ticketData, id: newDocRef.id };
   };
 
@@ -183,41 +159,29 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!db) return;
     const deptId = departmentId || currentDeptId;
     const ticketRef = doc(db, 'departments', deptId, 'tickets', ticketId);
-    
-    const updates: any = { 
-      status,
-      updatedAt: new Date().toISOString()
-    };
-    
+    const updates: any = { status, updatedAt: new Date().toISOString() };
     if (status === 'CALLED') updates.calledAt = new Date().toISOString();
-    if (status === 'COMPLETED' || status === 'NOSHOW') {
-      updates.completedAt = new Date().toISOString();
-    }
+    if (status === 'COMPLETED' || status === 'NOSHOW') updates.completedAt = new Date().toISOString();
 
     updateDoc(ticketRef, updates).catch(async () => {
-      const permissionError = new FirestorePermissionError({
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: ticketRef.path,
         operation: 'update',
         requestResourceData: updates,
-      });
-      errorEmitter.emit('permission-error', permissionError);
+      }));
     });
 
     if (status === 'COMPLETED' || status === 'NOSHOW') {
       const counter = counters.find(c => c.currentTicketId === ticketId);
       if (counter) {
         const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
-        const counterUpdates = {
-          status: 'VACANT',
-          currentTicketId: null
-        };
+        const counterUpdates = { status: 'VACANT', currentTicketId: null };
         updateDoc(counterRef, counterUpdates).catch(async () => {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: counterRef.path,
             operation: 'update',
             requestResourceData: counterUpdates,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          }));
         });
       }
     }
@@ -227,45 +191,27 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!db) return;
     const counter = counters.find(c => c.id === counterId);
     if (!counter) return;
-
-    const nextTicket = tickets.find(t => 
-      t.departmentId === counter.departmentId && 
-      t.serviceType === counter.serviceType && 
-      t.status === 'WAITING'
-    );
+    const nextTicket = tickets.find(t => t.departmentId === counter.departmentId && t.serviceType === counter.serviceType && t.status === 'WAITING');
 
     if (nextTicket) {
       const ticketRef = doc(db, 'departments', counter.departmentId, 'tickets', nextTicket.id);
       const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
-      
-      const ticketUpdates = { 
-        status: 'CALLED' as TicketStatus, 
-        counterId: counter.id,
-        calledAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      const counterUpdates = {
-        status: 'SERVING',
-        currentTicketId: nextTicket.id
-      };
+      const ticketUpdates = { status: 'CALLED' as TicketStatus, counterId: counter.id, calledAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      const counterUpdates = { status: 'SERVING', currentTicketId: nextTicket.id };
 
       updateDoc(ticketRef, ticketUpdates).catch(async () => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: ticketRef.path,
           operation: 'update',
           requestResourceData: ticketUpdates,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
       });
-      
       updateDoc(counterRef, counterUpdates).catch(async () => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: counterRef.path,
           operation: 'update',
           requestResourceData: counterUpdates,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
       });
 
       announceTicket({
@@ -282,6 +228,9 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const loginWithGoogle = () => auth && initiateGoogleSignIn(auth);
+  const logout = () => auth && signOut(auth);
+
   return (
     <QueueContext.Provider value={{ 
       departments, 
@@ -294,7 +243,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updateTicketStatus,
       staffCounter,
       setStaffCounter: setStaffCounterId,
-      isUserLoading
+      isUserLoading,
+      loginWithGoogle,
+      logout,
+      isAdmin
     }}>
       {children}
     </QueueContext.Provider>

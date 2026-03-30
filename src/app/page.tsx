@@ -1,8 +1,15 @@
-import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Monitor, Smartphone, UserCog, ShieldCheck } from 'lucide-react';
 
-export default function Home() {
+"use client";
+
+import Link from 'next/link';
+import { QueueProvider, useQueue } from '@/context/QueueContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Monitor, Smartphone, UserCog, ShieldCheck, LogIn, LogOut } from 'lucide-react';
+
+function HomeContent() {
+  const { loginWithGoogle, logout, isAdmin, isUserLoading } = useQueue();
+
   const views = [
     { title: 'Student Kiosk', href: '/kiosk', icon: Smartphone, description: 'Ticket dispenser for students.', color: 'bg-primary' },
     { title: 'Public Monitor', href: '/monitor', icon: Monitor, description: 'Live display for waiting areas.', color: 'bg-accent' },
@@ -13,15 +20,33 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F4F4F7]">
       <div className="max-w-4xl w-full space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight text-secondary">UniQueue</h1>
-          <p className="text-muted-foreground text-lg">Centralized University Queueing System Prototype</p>
+        <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-white/40 glass">
+          <div className="text-left space-y-1">
+            <h1 className="text-4xl font-extrabold tracking-tight text-secondary">UniQueue</h1>
+            <p className="text-muted-foreground text-sm font-semibold">University Queueing System Prototype</p>
+          </div>
+          
+          <div className="flex gap-2">
+            {!isUserLoading && (
+              isAdmin ? (
+                <Button variant="outline" onClick={logout} className="rounded-xl border-2 font-bold gap-2">
+                  <LogOut size={18} />
+                  Admin Logout
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={loginWithGoogle} className="rounded-xl border-2 font-bold gap-2">
+                  <LogIn size={18} />
+                  Staff/Admin Login
+                </Button>
+              )
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {views.map((view) => (
             <Link key={view.href} href={view.href}>
-              <Card className="hover:shadow-xl transition-all duration-300 border-none glass hover:translate-y-[-4px] cursor-pointer group">
+              <Card className="hover:shadow-xl transition-all duration-300 border-none glass hover:translate-y-[-4px] cursor-pointer group h-full">
                 <CardHeader className="flex flex-row items-center space-x-4 pb-2">
                   <div className={`p-3 rounded-xl text-white ${view.color} shadow-lg`}>
                     <view.icon size={24} />
@@ -39,10 +64,18 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="text-center pt-8 text-sm text-muted-foreground opacity-50">
+        <div className="text-center pt-8 text-sm text-muted-foreground opacity-50 font-bold uppercase tracking-widest">
           Built for University Enrollment Seasons
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <QueueProvider>
+      <HomeContent />
+    </QueueProvider>
   );
 }
