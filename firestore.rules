@@ -62,7 +62,8 @@ service cloud.firestore {
       allow get: if true;
       allow list: if isSignedIn();
       allow create: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
-      allow update: if isSuperadmin() || (belongsToDept(departmentId) && (hasRole('DeptAdmin') || hasRole('Staff')));
+      // For prototype: allow signed in users to update counters (for staff terminal)
+      allow update: if isSignedIn();
       allow delete: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
     }
 
@@ -70,11 +71,12 @@ service cloud.firestore {
       // Public monitor and student mobile tracking need public access
       allow get, list: if true;
 
-      // Kiosks create tickets.
+      // Kiosks and status pages create/update.
       allow create: if isSignedIn();
 
-      // Staff and Admins update ticket statuses.
-      allow update: if isSuperadmin() || (belongsToDept(departmentId) && (hasRole('DeptAdmin') || hasRole('Staff')));
+      // Staff and Admins update ticket statuses. 
+      // For prototype: allow any signed in user to update (for anonymous staff demo)
+      allow update: if isSignedIn();
 
       // Deletions typically restricted to Admins.
       allow delete: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
