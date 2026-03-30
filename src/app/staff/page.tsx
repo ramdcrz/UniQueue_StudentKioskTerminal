@@ -7,21 +7,119 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert } from 'lucide-react';
+import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
 
+function StaffSetup() {
+  const { departments, setStaffAssignment, staffAssignment } = useQueue();
+  const [selectedDept, setSelectedDept] = useState<string | null>(staffAssignment.deptId);
+  const [selectedService, setSelectedService] = useState<'CASHIER' | 'ACCOUNTING' | null>(staffAssignment.serviceType);
+
+  const dept = departments.find(d => d.id === selectedDept);
+
+  const handleConfirm = () => {
+    if (selectedDept && selectedService) {
+      setStaffAssignment(selectedDept, selectedService);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-6">
+      <Card className="max-w-xl w-full p-10 rounded-[2.5rem] shadow-2xl space-y-8 glass">
+        <div className="text-center space-y-2">
+          <Building2 size={48} className="mx-auto text-primary" />
+          <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Terminal Setup</h1>
+          <p className="text-muted-foreground font-medium">Assign this terminal to a building and office</p>
+        </div>
+
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Select Building</label>
+            <div className="grid grid-cols-2 gap-3">
+              {departments.map(d => (
+                <Button 
+                  key={d.id} 
+                  variant={selectedDept === d.id ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelectedDept(d.id);
+                    if (!d.hasAccounting) setSelectedService('CASHIER');
+                  }}
+                  className="h-16 rounded-2xl font-bold"
+                >
+                  {d.acronym}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {dept && dept.hasAccounting && (
+            <div className="space-y-3">
+              <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Select Office</label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  variant={selectedService === 'CASHIER' ? 'default' : 'outline'}
+                  onClick={() => setSelectedService('CASHIER')}
+                  className="h-16 rounded-2xl font-bold"
+                >
+                  Cashier
+                </Button>
+                <Button 
+                  variant={selectedService === 'ACCOUNTING' ? 'default' : 'outline'}
+                  onClick={() => setSelectedService('ACCOUNTING')}
+                  className="h-16 rounded-2xl font-bold"
+                >
+                  Accounting
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <Button 
+            disabled={!selectedDept || !selectedService}
+            onClick={handleConfirm}
+            className="w-full h-16 rounded-2xl bg-secondary font-black text-lg uppercase tracking-widest shadow-xl"
+          >
+            Start Serving
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function StaffContent() {
-  const { staffCounter, counters, setStaffCounter, callNextTicket, tickets, updateTicketStatus, isStaff, isUserLoading } = useQueue();
+  const { 
+    staffCounter, 
+    counters, 
+    setStaffCounter, 
+    callNextTicket, 
+    tickets, 
+    updateTicketStatus, 
+    isStaff, 
+    isAdmin,
+    isUserLoading,
+    staffAssignment,
+    setStaffAssignment
+  } = useQueue();
   const { user } = useUser();
   const [loading, setLoading] = useState(false);
 
+  // Automatically find or create a counter for the assigned building/office
   useEffect(() => {
-    if (!staffCounter && counters.length > 0) setStaffCounter(counters[0].id);
-  }, [counters, staffCounter, setStaffCounter]);
+    if (staffAssignment.deptId && staffAssignment.serviceType && !staffCounter) {
+      const existing = counters.find(c => 
+        c.departmentId === staffAssignment.deptId && 
+        c.serviceType === staffAssignment.serviceType
+      );
+      if (existing) {
+        setStaffCounter(existing.id);
+      }
+    }
+  }, [counters, staffCounter, setStaffCounter, staffAssignment]);
 
   if (isUserLoading) {
-    return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">Loading...</div>;
+    return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8 font-bold">Loading system...</div>;
   }
 
   if (!isStaff) {
@@ -35,7 +133,7 @@ function StaffContent() {
             <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
             <p className="text-muted-foreground font-medium">This terminal is restricted to authorized staff members.</p>
           </div>
-          <div className="pb-12 pt-6">
+          <div className="pb-16 pt-6">
             <Link href="/">
               <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
             </Link>
@@ -43,6 +141,10 @@ function StaffContent() {
         </Card>
       </div>
     );
+  }
+
+  if (!staffAssignment.deptId || !staffAssignment.serviceType) {
+    return <StaffSetup />;
   }
 
   const currentTicket = tickets.find(t => t.id === staffCounter?.currentTicketId);
@@ -64,8 +166,8 @@ function StaffContent() {
 
   const queueCount = tickets.filter(t => 
     t.status === 'WAITING' && 
-    t.departmentId === staffCounter?.departmentId && 
-    t.serviceType === staffCounter?.serviceType
+    t.departmentId === staffAssignment.deptId && 
+    t.serviceType === staffAssignment.serviceType
   ).length;
 
   return (
@@ -78,17 +180,27 @@ function StaffContent() {
             </div>
             <div>
               <h1 className="font-black text-secondary uppercase">
-                STAFF: {user?.displayName || user?.email?.split('@')[0] || "Unknown"}
+                {user?.displayName || user?.email?.split('@')[0] || "Staff Member"}
               </h1>
               <p className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
                 <span className="w-2 h-2 bg-success rounded-full" />
-                {staffCounter?.serviceType} COUNTER {staffCounter?.counterNumber}
+                {staffAssignment.serviceType} Terminal - {staffAssignment.deptId?.toUpperCase()}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                onClick={() => setStaffAssignment(null, null)}
+                className="rounded-xl border-2 font-bold gap-2 text-xs"
+              >
+                <Settings size={14} />
+                Switch Building
+              </Button>
+            )}
             <Badge variant="outline" className="px-4 py-1.5 rounded-full border-2 border-primary/20 text-primary font-bold">
-              {staffCounter?.status}
+              {staffCounter?.status || 'OFFLINE'}
             </Badge>
             <Link href="/">
               <Button variant="ghost" size="icon" className="rounded-2xl text-destructive hover:bg-destructive/10">
@@ -138,10 +250,10 @@ function StaffContent() {
                    </div>
                    <div className="space-y-2">
                     <h2 className="text-3xl font-black text-secondary uppercase">Counter Vacant</h2>
-                    <p className="text-muted-foreground font-medium">Ready to serve the next student in line</p>
+                    <p className="text-muted-foreground font-medium">Ready for next student</p>
                    </div>
                    <Button 
-                    disabled={queueCount === 0 || loading}
+                    disabled={queueCount === 0 || loading || !staffCounter}
                     onClick={() => handleAction('next')}
                     className="px-12 h-20 text-2xl font-black bg-success hover:bg-success/90 rounded-3xl shadow-2xl flex items-center gap-4 hover:scale-105 transition-all"
                    >
@@ -171,13 +283,13 @@ function StaffContent() {
                   <div className="bg-white/50 p-4 rounded-2xl">
                     <p className="text-[10px] font-black text-muted-foreground uppercase">Served Today</p>
                     <p className="text-2xl font-black jet-mono text-secondary">
-                      {tickets.filter(t => t.status === 'COMPLETED').length}
+                      {tickets.filter(t => t.status === 'COMPLETED' && t.departmentId === staffAssignment.deptId && t.serviceType === staffAssignment.serviceType).length}
                     </p>
                   </div>
                   <div className="bg-white/50 p-4 rounded-2xl">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase">Abandonment</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">No Show</p>
                     <p className="text-2xl font-black jet-mono text-secondary">
-                      {tickets.filter(t => t.status === 'NOSHOW').length}
+                      {tickets.filter(t => t.status === 'NOSHOW' && t.departmentId === staffAssignment.deptId && t.serviceType === staffAssignment.serviceType).length}
                     </p>
                   </div>
                 </div>
@@ -186,9 +298,9 @@ function StaffContent() {
 
             <Card className="bg-secondary p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
               <div className="relative z-10">
-                <h3 className="text-xs font-black text-white/50 uppercase tracking-widest mb-4">Department Notice</h3>
+                <h3 className="text-xs font-black text-white/50 uppercase tracking-widest mb-4">Terminal Notice</h3>
                 <p className="text-sm font-medium leading-relaxed">
-                  Peak enrollment season is active. Please ensure timely transaction completion to maintain queue efficiency.
+                  You are currently managing the {staffAssignment.serviceType} queue for the {staffAssignment.deptId?.toUpperCase()} building.
                 </p>
               </div>
               <div className="absolute top-[-20%] right-[-20%] w-32 h-32 bg-white/10 rounded-full blur-3xl" />

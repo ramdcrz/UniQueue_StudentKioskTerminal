@@ -29,7 +29,9 @@ interface QueueContextType {
   callNextTicket: (counterId: string) => void;
   updateTicketStatus: (ticketId: string, status: TicketStatus, departmentId?: string) => void;
   staffCounter: Counter | null;
-  setStaffCounter: (counterId: string) => void;
+  setStaffCounter: (counterId: string | null) => void;
+  staffAssignment: { deptId: string | null; serviceType: ServiceType | null };
+  setStaffAssignment: (deptId: string | null, serviceType: ServiceType | null) => void;
   isUserLoading: boolean;
   loginWithGoogle: () => void;
   logout: () => void;
@@ -41,9 +43,9 @@ const QueueContext = createContext<QueueContextType | undefined>(undefined);
 
 const INITIAL_DEPARTMENTS: Department[] = [
   { id: 'main', name: 'Main Building', acronym: 'Main', code: 'M', hasAccounting: true },
-  { id: 'is', name: 'Integrated School', acronym: 'IS', code: 'IS', hasAccounting: false },
-  { id: 'som', name: 'School of Management', acronym: 'SOM', code: 'SOM', hasAccounting: false },
-  { id: 'psb', name: 'Professional Schools Building', acronym: 'PSB', code: 'PSB', hasAccounting: false },
+  { id: 'is', name: 'Integrated School', acronym: 'IS', code: 'I', hasAccounting: false },
+  { id: 'som', name: 'School of Management', acronym: 'SOM', code: 'S', hasAccounting: false },
+  { id: 'psb', name: 'Professional Schools Building', acronym: 'PSB', code: 'P', hasAccounting: false },
 ];
 
 const ADMIN_EMAILS = [
@@ -68,6 +70,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [currentDeptId, setCurrentDeptId] = useState<string>('main');
   const [staffCounterId, setStaffCounterId] = useState<string | null>(null);
+  
+  // Staff assignment tracking
+  const [staffAssignment, setAssignment] = useState<{ deptId: string | null; serviceType: ServiceType | null }>({
+    deptId: null,
+    serviceType: null
+  });
 
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
@@ -123,7 +131,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     
-    // Calculate next number based on department sequence only
     const buildingTickets = tickets.filter(t => t.departmentId === currentDeptId);
     const num = (buildingTickets.length + 1).toString().padStart(3, '0');
     
@@ -200,6 +207,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const setStaffAssignment = (deptId: string | null, serviceType: ServiceType | null) => {
+    setAssignment({ deptId, serviceType });
+    // When assignment changes, reset the specific counter ID to let the staff page re-select or prompt
+    setStaffCounterId(null);
+  };
+
   const loginWithGoogle = () => {
     if (auth) {
       initiateGoogleSignIn(auth).catch((err) => {
@@ -216,7 +229,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <QueueContext.Provider value={{ 
       departments, counters, tickets, currentDepartment, 
       setCurrentDepartment: setCurrentDeptId, createTicket, callNextTicket, updateTicketStatus,
-      staffCounter, setStaffCounter: setStaffCounterId, isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
+      staffCounter, setStaffCounter: setStaffCounterId, staffAssignment, setStaffAssignment,
+      isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
     }}>
       {children}
     </QueueContext.Provider>
