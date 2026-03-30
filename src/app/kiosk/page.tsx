@@ -1,24 +1,41 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Receipt, CheckCircle2, Building2 } from 'lucide-react';
+import { CreditCard, Receipt, CheckCircle2, Building2, Camera, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 function KioskContent() {
   const { currentDepartment, createTicket, departments, setCurrentDepartment } = useQueue();
   const [step, setStep] = useState<'welcome' | 'service' | 'success'>('welcome');
   const [lastTicket, setLastTicket] = useState<any>(null);
+  const [countdown, setCountdown] = useState(15);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (step === 'success') {
+      setCountdown(15);
+      timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            setStep('welcome');
+            return 15;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [step]);
 
   const handleGetQueue = (service: 'CASHIER' | 'ACCOUNTING' = 'CASHIER') => {
     const ticket = createTicket(service);
     setLastTicket(ticket);
     setStep('success');
-    setTimeout(() => {
-      setStep('welcome');
-    }, 5000);
   };
 
   const handleStart = () => {
@@ -28,6 +45,10 @@ function KioskContent() {
       handleGetQueue('CASHIER');
     }
   };
+
+  const statusUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/status/${lastTicket?.id}` 
+    : '';
 
   return (
     <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-4 relative overflow-hidden">
@@ -40,7 +61,7 @@ function KioskContent() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-lg z-10"
       >
-        <Card className="liquid-glass p-8 rounded-[2rem] border-white/40 shadow-2xl">
+        <Card className="liquid-glass p-8 rounded-[2.5rem] border-white/40 shadow-2xl">
           <div className="flex flex-col items-center text-center space-y-8">
             <div className="flex items-center space-x-3 text-primary">
               <Building2 size={32} />
@@ -51,7 +72,7 @@ function KioskContent() {
               <h2 className="text-3xl font-bold text-secondary">
                 {currentDepartment?.name}
               </h2>
-              <p className="text-muted-foreground">Please follow the instructions on the screen</p>
+              <p className="text-muted-foreground font-medium">Please follow the instructions on the screen</p>
             </div>
 
             <AnimatePresence mode="wait">
@@ -65,11 +86,11 @@ function KioskContent() {
                 >
                   <Button 
                     onClick={handleStart}
-                    className="w-full h-24 text-2xl font-bold bg-primary hover:bg-primary/90 rounded-2xl shadow-xl hover:scale-[1.02] transition-transform"
+                    className="w-full h-32 text-3xl font-black bg-primary hover:bg-primary/90 rounded-[2rem] shadow-xl hover:scale-[1.02] transition-all uppercase tracking-tight"
                   >
-                    Get Queue Number
+                    Get Ticket
                   </Button>
-                  <p className="text-sm font-medium text-muted-foreground">Tap to print your ticket</p>
+                  <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Tap to start</p>
                 </motion.div>
               )}
 
@@ -101,7 +122,7 @@ function KioskContent() {
                     </div>
                     <span>Accounting Office</span>
                   </Button>
-                  <Button variant="ghost" onClick={() => setStep('welcome')}>Go Back</Button>
+                  <Button variant="ghost" onClick={() => setStep('welcome')} className="font-bold text-muted-foreground">GO BACK</Button>
                 </motion.div>
               )}
 
@@ -111,18 +132,36 @@ function KioskContent() {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="w-full flex flex-col items-center space-y-6"
+                  className="w-full flex flex-col items-center space-y-8"
                 >
-                  <div className="p-4 bg-success/10 text-success rounded-full">
-                    <CheckCircle2 size={64} />
-                  </div>
                   <div className="text-center space-y-2">
-                    <h3 className="text-2xl font-bold">Ticket Generated!</h3>
-                    <p className="text-muted-foreground">Your queue number is:</p>
-                    <div className="text-6xl font-black jet-mono text-primary py-4">
+                    <p className="text-sm font-black text-primary uppercase tracking-[0.2em]">Your Queue Number</p>
+                    <div className="text-8xl font-black jet-mono text-secondary py-2">
                       {lastTicket?.queueNumber}
                     </div>
-                    <p className="text-sm text-muted-foreground animate-pulse">Printing ticket...</p>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-[2rem] shadow-inner border border-border/50">
+                    <QRCodeSVG 
+                      value={statusUrl} 
+                      size={180} 
+                      level="H"
+                      includeMargin={false}
+                    />
+                  </div>
+
+                  <div className="space-y-4 px-4">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground font-semibold">
+                      <Camera size={18} />
+                      <p className="text-sm">Scan QR to track your turn or take a photo</p>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => setStep('welcome')}
+                      className="w-full h-14 bg-secondary text-white font-bold rounded-2xl hover:bg-secondary/90 transition-all"
+                    >
+                      DONE ({countdown}s)
+                    </Button>
                   </div>
                 </motion.div>
               )}
@@ -136,7 +175,7 @@ function KioskContent() {
             <button 
               key={d.id}
               onClick={() => { setCurrentDepartment(d.id); setStep('welcome'); }}
-              className={`px-3 py-1 text-xs rounded-full border transition-all ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground border-border hover:bg-gray-50'}`}
+              className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all uppercase tracking-tighter ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground border-border hover:bg-gray-50'}`}
             >
               {d.name.split(' ')[0]}
             </button>
