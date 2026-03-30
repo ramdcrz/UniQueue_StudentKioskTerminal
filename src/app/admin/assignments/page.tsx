@@ -4,8 +4,7 @@
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ShieldAlert, User, Building2, ArrowLeft, Save } from 'lucide-react';
+import { ShieldAlert, User, ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ServiceType } from '@/lib/types';
@@ -39,7 +38,7 @@ function AssignmentsContent() {
     );
   }
 
-  const staffUsers = allUsers.filter(u => u.role === 'STAFF');
+  const staffUsers = allUsers.filter(u => u.role === 'STAFF' || u.role === 'SUPERADMIN');
 
   const handleUpdate = (userId: string) => {
     const assignment = localAssignments[userId];
@@ -62,7 +61,7 @@ function AssignmentsContent() {
               <ArrowLeft size={16} /> Back to Dashboard
             </Link>
             <h1 className="text-3xl font-black text-secondary uppercase tracking-tight">Staff Terminal Control</h1>
-            <p className="text-muted-foreground font-semibold">Manage building and office assignments for all staff members</p>
+            <p className="text-muted-foreground font-semibold">Manage building and office assignments for all terminal users</p>
           </div>
         </div>
 
@@ -74,8 +73,7 @@ function AssignmentsContent() {
           ) : (
             staffUsers.map((u) => {
               const current = getLocal(u.id, u);
-              const dept = departments.find(d => d.id === current.deptId);
-
+              
               return (
                 <Card key={u.id} className="p-6 glass rounded-3xl border-none shadow-sm flex items-center justify-between gap-6">
                   <div className="flex items-center gap-4 flex-1">
@@ -84,11 +82,11 @@ function AssignmentsContent() {
                     </div>
                     <div>
                       <h3 className="font-black text-secondary uppercase leading-none">{u.name}</h3>
-                      <p className="text-xs font-bold text-muted-foreground mt-1">{u.email}</p>
+                      <p className="text-xs font-bold text-muted-foreground mt-1">{u.email} <span className="ml-2 px-2 py-0.5 bg-muted rounded-full text-[8px]">{u.role}</span></p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-6">
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] font-black uppercase text-muted-foreground">Building</label>
                       <select 
@@ -96,7 +94,8 @@ function AssignmentsContent() {
                         value={current.deptId || ''}
                         onChange={(e) => {
                           const val = e.target.value || null;
-                          const newService = val && val !== 'main' ? 'CASHIER' : (current.serviceType || 'CASHIER');
+                          const dept = departments.find(d => d.id === val);
+                          const newService = dept?.hasAccounting ? (current.serviceType || 'CASHIER') : 'CASHIER';
                           setLocalAssignments({ ...localAssignments, [u.id]: { deptId: val, serviceType: newService as ServiceType } });
                         }}
                       >
@@ -105,19 +104,20 @@ function AssignmentsContent() {
                       </select>
                     </div>
 
-                    {current.deptId === 'main' && (
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-black uppercase text-muted-foreground">Office</label>
-                        <select 
-                          className="bg-white border rounded-lg px-3 py-2 text-sm font-bold outline-none"
-                          value={current.serviceType || ''}
-                          onChange={(e) => setLocalAssignments({ ...localAssignments, [u.id]: { ...current, serviceType: e.target.value as ServiceType } })}
-                        >
-                          <option value="CASHIER">Cashier</option>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase text-muted-foreground">Office</label>
+                      <select 
+                        disabled={!current.deptId}
+                        className="bg-white border rounded-lg px-3 py-2 text-sm font-bold outline-none disabled:opacity-50"
+                        value={current.serviceType || ''}
+                        onChange={(e) => setLocalAssignments({ ...localAssignments, [u.id]: { ...current, serviceType: e.target.value as ServiceType } })}
+                      >
+                        <option value="CASHIER">Cashier</option>
+                        {departments.find(d => d.id === current.deptId)?.hasAccounting && (
                           <option value="ACCOUNTING">Accounting</option>
-                        </select>
-                      </div>
-                    )}
+                        )}
+                      </select>
+                    </div>
 
                     <Button 
                       onClick={() => handleUpdate(u.id)}

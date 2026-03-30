@@ -88,14 +88,14 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
 
-  // Anonymous sign in for kiosks/monitors
+  // Sync Auth State
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
       initiateAnonymousSignIn(auth).catch(() => {});
     }
   }, [auth, user, isUserLoading]);
 
-  // Sync Current User Profile
+  // Sync Current User Profile & Persistent Assignments
   useEffect(() => {
     if (!db || !user?.uid) return;
     const userRef = doc(db, 'users', user.uid);
@@ -103,7 +103,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (snapshot.exists()) {
         setCurrentUserProfile({ ...snapshot.data(), id: snapshot.id } as AppUser);
       } else {
-        // Create profile if missing
         const initialData = {
           id: user.uid,
           name: user.displayName || user.email?.split('@')[0] || 'Unknown',
@@ -115,11 +114,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [db, user, isAdmin, isStaff]);
 
-  // Global Syncing
+  // Global Real-time Sync
   useEffect(() => {
     if (!db || isUserLoading || !user) return;
 
-    // Sync all users for Admin
     if (isAdmin) {
       const usersRef = collection(db, 'users');
       onSnapshot(usersRef, (snapshot) => {
@@ -127,37 +125,32 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
 
-    const unsubscribes = departments.map(dept => {
+    const ticketUnsubs = departments.map(dept => {
       const ticketsRef = collection(db, 'departments', dept.id, 'tickets');
       const q = query(ticketsRef, orderBy('createdAt', 'desc'));
-      
       return onSnapshot(q, (snapshot) => {
         const deptTickets = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ticket));
         setTickets(prev => {
-          const otherDeptsTickets = prev.filter(t => t.departmentId !== dept.id);
-          return [...otherDeptsTickets, ...deptTickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          const others = prev.filter(t => t.departmentId !== dept.id);
+          return [...others, ...deptTickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         });
-      }, (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `departments/${dept.id}/tickets`, operation: 'list' }));
       });
     });
 
-    const counterUnsubscribes = departments.map(dept => {
+    const counterUnsubs = departments.map(dept => {
       const countersRef = collection(db, 'departments', dept.id, 'counters');
       return onSnapshot(countersRef, (snapshot) => {
         const deptCounters = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Counter));
         setCounters(prev => {
-          const otherDeptsCounters = prev.filter(c => c.departmentId !== dept.id);
-          return [...otherDeptsCounters, ...deptCounters];
+          const others = prev.filter(c => c.departmentId !== dept.id);
+          return [...others, ...deptCounters];
         });
-      }, (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `departments/${dept.id}/counters`, operation: 'list' }));
       });
     });
 
     return () => {
-      unsubscribes.forEach(unsub => unsub());
-      counterUnsubscribes.forEach(unsub => unsub());
+      ticketUnsubs.forEach(u => u());
+      counterUnsubs.forEach(u => u());
     };
   }, [db, departments, isUserLoading, user, isAdmin]);
 
@@ -187,13 +180,19 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateTicketStatus = (ticketId: string, status: TicketStatus, departmentId?: string) => {
     if (!db) return;
-    const deptId = departmentId || currentDeptId;
+    
+    // CRITICAL: Find ticket to get correct building path if not explicitly provided
+    const ticket = tickets.find(t => t.id === ticketId);
+    const deptId = departmentId || ticket?.departmentId || currentDeptId;
+    
     const ticketRef = doc(db, 'departments', deptId, 'tickets', ticketId);
     const updates: any = { status, updatedAt: new Date().toISOString() };
     if (status === 'CALLED') updates.calledAt = new Date().toISOString();
     if (status === 'COMPLETED' || status === 'NOSHOW') updates.completedAt = new Date().toISOString();
 
-    updateDoc(ticketRef, updates);
+    updateDoc(ticketRef, updates).catch((err) => {
+      console.error("Failed to update ticket", err);
+    });
 
     if (status === 'COMPLETED' || status === 'NOSHOW') {
       const counter = counters.find(c => c.currentTicketId === ticketId);
