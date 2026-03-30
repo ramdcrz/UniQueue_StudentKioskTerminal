@@ -9,6 +9,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, Receipt, CheckCircle2, Building2, Camera, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
+/**
+ * Kiosk view for student ticket dispensing.
+ * Features a virtual ticket with QR code for mobile tracking.
+ */
 function KioskContent() {
   const { currentDepartment, createTicket, departments, setCurrentDepartment } = useQueue();
   const [step, setStep] = useState<'welcome' | 'service' | 'success'>('welcome');
@@ -142,12 +146,14 @@ function KioskContent() {
                   </div>
 
                   <div className="bg-white p-6 rounded-[2rem] shadow-inner border border-border/50">
-                    <QRCodeSVG 
-                      value={statusUrl} 
-                      size={180} 
-                      level="H"
-                      includeMargin={false}
-                    />
+                    {statusUrl && (
+                      <QRCodeSVG 
+                        value={statusUrl} 
+                        size={180} 
+                        level="H"
+                        includeMargin={false}
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-4 px-4">
