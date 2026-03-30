@@ -1,11 +1,14 @@
+
 "use client";
 
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { Clock, Building2, UserCheck, RefreshCw } from 'lucide-react';
+import { Clock, Building2, UserCheck, RefreshCw, Home } from 'lucide-react';
 
 /**
  * Consolidated mobile status tracking page.
@@ -15,10 +18,8 @@ function StatusContent() {
   const { id } = useParams();
   const { tickets, counters, departments, isUserLoading } = useQueue();
   
-  // Search for the ticket across all synchronized departmental queues
   const ticket = tickets.find(t => t.id === id);
   
-  // Show loading state while auth is resolving or if tickets are still syncing
   if (isUserLoading || (tickets.length === 0 && !ticket)) {
     return (
       <div className="min-h-screen bg-[#F4F4F7] flex flex-col items-center justify-center p-6 space-y-4">
@@ -33,26 +34,27 @@ function StatusContent() {
   if (!ticket) {
     return (
       <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-6">
-        <Card className="glass p-8 text-center space-y-4 rounded-[2rem] max-w-sm">
+        <Card className="glass p-8 text-center space-y-6 rounded-[2rem] max-w-sm">
           <div className="p-4 bg-destructive/10 text-destructive rounded-full w-fit mx-auto">
             <Clock size={32} />
           </div>
-          <h1 className="text-xl font-black text-secondary uppercase">Ticket Not Found</h1>
-          <p className="text-muted-foreground font-medium">This ticket may have expired, or the ID is invalid.</p>
-          <div className="pt-4">
-            <Badge variant="outline" className="text-[10px] opacity-50">ID: {id}</Badge>
+          <div className="space-y-2">
+            <h1 className="text-xl font-black text-secondary uppercase">Ticket Not Found</h1>
+            <p className="text-muted-foreground font-medium text-sm">This ticket may have expired, or the ID is invalid.</p>
           </div>
+          <Link href="/" className="block">
+            <Button className="w-full rounded-xl bg-secondary hover:bg-secondary/90">
+              Back to Home
+            </Button>
+          </Link>
         </Card>
       </div>
     );
   }
 
   const department = departments.find(d => d.id === ticket.departmentId);
-  
-  // Find the counter assigned to this ticket
   const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
   
-  // Calculate students ahead in the same department and service type
   const waitingAhead = tickets.filter(t => 
     t.status === 'WAITING' && 
     t.departmentId === ticket.departmentId && 
@@ -134,6 +136,13 @@ function StatusContent() {
                 </p>
               </motion.div>
             )}
+            
+            <Link href="/" className="block">
+              <Button variant="outline" className="w-full rounded-2xl border-2 font-bold text-muted-foreground hover:bg-white/50 gap-2">
+                <Home size={18} />
+                BACK TO HOME
+              </Button>
+            </Link>
           </div>
 
           <div className="bg-secondary p-4 text-center">
@@ -145,7 +154,7 @@ function StatusContent() {
         </Card>
 
         <p className="text-center mt-8 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-50 px-8">
-          This page updates automatically. Please keep it open until your number is called.
+          Keep this page open until your number is called.
         </p>
       </motion.div>
     </div>

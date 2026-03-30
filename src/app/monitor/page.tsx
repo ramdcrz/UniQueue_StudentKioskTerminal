@@ -9,14 +9,13 @@ import { Building2, Volume2 } from 'lucide-react';
 
 /**
  * Public monitor view for waiting areas.
- * Displays currently serving tickets and recently called ones.
+ * Displays currently serving tickets and recently called ones for the specific department.
  */
 function MonitorContent() {
-  const { tickets, counters, currentDepartment } = useQueue();
+  const { tickets, counters, currentDepartment, departments, setCurrentDepartment } = useQueue();
   const [time, setTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Set initial time on mount to avoid hydration mismatch
     setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -24,20 +23,20 @@ function MonitorContent() {
 
   const currentlyServing = useMemo(() => {
     return tickets
-      .filter(t => t.status === 'CALLED' || t.status === 'SERVING')
+      .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'CALLED' || t.status === 'SERVING'))
       .slice(0, 4);
-  }, [tickets]);
+  }, [tickets, currentDepartment]);
   
   const history = useMemo(() => {
     return tickets
-      .filter(t => t.status === 'COMPLETED' || t.status === 'NOSHOW')
+      .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'COMPLETED' || t.status === 'NOSHOW'))
       .sort((a, b) => {
         const timeA = new Date(a.completedAt || a.updatedAt || 0).getTime();
         const timeB = new Date(b.completedAt || b.updatedAt || 0).getTime();
         return timeB - timeA;
       })
       .slice(0, 5);
-  }, [tickets]);
+  }, [tickets, currentDepartment]);
 
   return (
     <div className="h-screen bg-[#F4F4F7] p-8 overflow-hidden flex flex-col space-y-6">
@@ -74,7 +73,7 @@ function MonitorContent() {
           <div className="grid grid-cols-2 gap-6 h-full">
             <AnimatePresence mode="popLayout">
               {currentlyServing.length > 0 ? (
-                currentlyServing.map((ticket, idx) => {
+                currentlyServing.map((ticket) => {
                   const counter = counters.find(c => c.id === ticket.counterId);
                   return (
                     <motion.div
@@ -135,10 +134,18 @@ function MonitorContent() {
               ))}
             </AnimatePresence>
           </div>
-          <div className="mt-6 pt-6 border-t border-border/50 text-center">
-            <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">
-              Please listen for voice announcements
-            </p>
+          
+          {/* Dept Switcher for Monitor Demo */}
+          <div className="mt-6 pt-6 border-t border-border/50 flex flex-wrap gap-1 justify-center">
+            {departments.map(d => (
+              <button 
+                key={d.id}
+                onClick={() => setCurrentDepartment(d.id)}
+                className={`px-2 py-1 text-[8px] font-bold rounded-full border transition-all uppercase ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground border-border'}`}
+              >
+                {d.name.split(' ')[0]}
+              </button>
+            ))}
           </div>
         </div>
       </div>

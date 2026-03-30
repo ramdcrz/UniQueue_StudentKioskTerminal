@@ -1,10 +1,11 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for generating Text-to-Speech announcements for the public monitor.
  *
  * - announceTicket - A function that generates an audible announcement for a called ticket.
  * - PublicMonitorTTSAnnouncementsInput - The input type for the announceTicket function.
- * - PublicMonitorTTSAnnouncementsOutput - The return type for the announceTicket function.
+ * - PublicMonitorTTSAnnouncementsOutput - The return type for the announcementTicket function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -40,8 +41,9 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
   async input => {
     const {ticketNumber, counterNumber} = input;
     
-    // Using a more direct prompt to minimize generation time and leading silence
-    const announcementText = `Number ${ticketNumber}. Proceed to Counter ${counterNumber}.`;
+    // Using punctuation and spacing to naturally slow down the TTS model
+    // Added explicit instruction to speak clearly and slowly
+    const announcementText = `Number. . . ${ticketNumber}. . . Proceed to. . . Counter. . . ${counterNumber}.`;
 
     const {media} = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
@@ -53,7 +55,7 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
           },
         },
       },
-      prompt: announcementText,
+      prompt: `Speak the following text clearly and slowly with natural pauses: ${announcementText}`,
     });
 
     if (!media) {
