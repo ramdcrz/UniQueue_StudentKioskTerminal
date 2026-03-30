@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Volume2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Building2, Volume2 } from 'lucide-react';
 function MonitorContent() {
   const { tickets, counters, currentDepartment, departments, setCurrentDepartment } = useQueue();
   const [time, setTime] = useState<Date | null>(null);
+  const lastAnnouncedId = useRef<string | null>(null);
 
   useEffect(() => {
     setTime(new Date());
@@ -19,8 +20,41 @@ function MonitorContent() {
   const currentlyServing = useMemo(() => {
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'CALLED' || t.status === 'SERVING'))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 4);
   }, [tickets, currentDepartment]);
+
+  // Browser Native TTS Announcement Logic
+  useEffect(() => {
+    const speak = (text: string) => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        // Cancel any pending speech to avoid backlog
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9; // Slightly slower for better clarity
+        utterance.pitch = 1.0;
+        
+        // Find a suitable voice (optional, defaults to system)
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang.includes('en-US')) || voices[0];
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        window.speechSynthesis.speak(utterance);
+      }
+    };
+
+    const latestCalled = currentlyServing[0];
+    if (latestCalled && latestCalled.status === 'CALLED' && latestCalled.id !== lastAnnouncedId.current) {
+      const counter = counters.find(c => c.id === latestCalled.counterId || c.currentTicketId === latestCalled.id);
+      if (counter) {
+        // Break number into digits for clearer announcement (e.g. M-0-0-1)
+        const digits = latestCalled.queueNumber.split('').join(' ');
+        speak(`Ticket number ${digits}. Please proceed to counter ${counter.counterNumber}.`);
+        lastAnnouncedId.current = latestCalled.id;
+      }
+    }
+  }, [currentlyServing, counters]);
   
   const history = useMemo(() => {
     return tickets

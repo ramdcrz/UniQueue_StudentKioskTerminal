@@ -3,7 +3,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser } from '@/lib/types';
-import { announceTicket } from '@/ai/flows/public-monitor-tts-announcements';
 import { 
   collection, 
   onSnapshot, 
@@ -88,14 +87,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
 
-  // Sync Auth State
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
       initiateAnonymousSignIn(auth).catch(() => {});
     }
   }, [auth, user, isUserLoading]);
 
-  // Sync Current User Profile & Persistent Assignments
   useEffect(() => {
     if (!db || !user?.uid) return;
     const userRef = doc(db, 'users', user.uid);
@@ -114,7 +111,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [db, user, isAdmin, isStaff]);
 
-  // Global Real-time Sync
   useEffect(() => {
     if (!db || isUserLoading || !user) return;
 
@@ -181,7 +177,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateTicketStatus = (ticketId: string, status: TicketStatus, departmentId?: string) => {
     if (!db) return;
     
-    // CRITICAL: Find ticket to get correct building path if not explicitly provided
     const ticket = tickets.find(t => t.id === ticketId);
     const deptId = departmentId || ticket?.departmentId || currentDeptId;
     
@@ -220,18 +215,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       updateDoc(ticketRef, { status: 'CALLED', counterId: counter.id, calledAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
       updateDoc(counterRef, { status: 'SERVING', currentTicketId: nextTicket.id });
-
-      announceTicket({
-        ticketNumber: nextTicket.queueNumber,
-        departmentName: INITIAL_DEPARTMENTS.find(d => d.id === counter.departmentId)?.name || "University",
-        serviceType: nextTicket.serviceType,
-        counterNumber: counter.counterNumber,
-      }).then(result => {
-        if (result.media) {
-          const audio = new Audio(result.media);
-          audio.play().catch(() => {});
-        }
-      });
     }
   };
 
