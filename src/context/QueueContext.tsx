@@ -76,7 +76,11 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
-      signInAnonymously(auth).catch(() => {});
+      signInAnonymously(auth).catch((err) => {
+        if (err.code === 'auth/operation-not-allowed') {
+          console.warn("Firebase Auth: Anonymous provider is not enabled in the Firebase Console. Visit https://console.firebase.google.com/ to enable it.");
+        }
+      });
     }
   }, [auth, user, isUserLoading]);
 
@@ -95,10 +99,11 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         });
       }, async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
+        const permissionError = new FirestorePermissionError({
           path: `departments/${dept.id}/tickets`,
           operation: 'list',
-        }));
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
     });
 
@@ -111,10 +116,11 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return [...otherDeptsCounters, ...deptCounters];
         });
       }, async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
+        const permissionError = new FirestorePermissionError({
           path: `departments/${dept.id}/counters`,
           operation: 'list',
-        }));
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
     });
 
@@ -134,7 +140,9 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const createTicket = async (serviceType: ServiceType) => {
     if (!db || !currentDepartment) throw new Error("Database or Department not ready");
-    const num = (tickets.filter(t => t.departmentId === currentDeptId).length + 1).toString().padStart(3, '0');
+    const buildingTickets = tickets.filter(t => t.departmentId === currentDeptId);
+    const num = (buildingTickets.length + 1).toString().padStart(3, '0');
+    
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     const ticketData = {
@@ -145,13 +153,16 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    
     setDoc(newDocRef, ticketData).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
+      const permissionError = new FirestorePermissionError({
         path: newDocRef.path,
         operation: 'create',
         requestResourceData: ticketData,
-      }));
+      });
+      errorEmitter.emit('permission-error', permissionError);
     });
+    
     return { ...ticketData, id: newDocRef.id };
   };
 
@@ -164,11 +175,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (status === 'COMPLETED' || status === 'NOSHOW') updates.completedAt = new Date().toISOString();
 
     updateDoc(ticketRef, updates).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
+      const permissionError = new FirestorePermissionError({
         path: ticketRef.path,
         operation: 'update',
         requestResourceData: updates,
-      }));
+      });
+      errorEmitter.emit('permission-error', permissionError);
     });
 
     if (status === 'COMPLETED' || status === 'NOSHOW') {
@@ -177,11 +189,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
         const counterUpdates = { status: 'VACANT', currentTicketId: null };
         updateDoc(counterRef, counterUpdates).catch(async () => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
+          const permissionError = new FirestorePermissionError({
             path: counterRef.path,
             operation: 'update',
             requestResourceData: counterUpdates,
-          }));
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
       }
     }
@@ -191,27 +204,43 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!db) return;
     const counter = counters.find(c => c.id === counterId);
     if (!counter) return;
-    const nextTicket = tickets.find(t => t.departmentId === counter.departmentId && t.serviceType === counter.serviceType && t.status === 'WAITING');
+    
+    const nextTicket = tickets.find(t => 
+      t.departmentId === counter.departmentId && 
+      t.serviceType === counter.serviceType && 
+      t.status === 'WAITING'
+    );
 
     if (nextTicket) {
       const ticketRef = doc(db, 'departments', counter.departmentId, 'tickets', nextTicket.id);
       const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
-      const ticketUpdates = { status: 'CALLED' as TicketStatus, counterId: counter.id, calledAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-      const counterUpdates = { status: 'SERVING', currentTicketId: nextTicket.id };
+      const ticketUpdates = { 
+        status: 'CALLED' as TicketStatus, 
+        counterId: counter.id, 
+        calledAt: new Date().toISOString(), 
+        updatedAt: new Date().toISOString() 
+      };
+      const counterUpdates = { 
+        status: 'SERVING', 
+        currentTicketId: nextTicket.id 
+      };
 
       updateDoc(ticketRef, ticketUpdates).catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
+        const permissionError = new FirestorePermissionError({
           path: ticketRef.path,
           operation: 'update',
           requestResourceData: ticketUpdates,
-        }));
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
+      
       updateDoc(counterRef, counterUpdates).catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
+        const permissionError = new FirestorePermissionError({
           path: counterRef.path,
           operation: 'update',
           requestResourceData: counterUpdates,
-        }));
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
 
       announceTicket({
@@ -228,7 +257,16 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const loginWithGoogle = () => auth && initiateGoogleSignIn(auth);
+  const loginWithGoogle = () => {
+    if (auth) {
+      initiateGoogleSignIn(auth).catch((err) => {
+        if (err.code === 'auth/operation-not-allowed') {
+          console.error("Firebase Auth: Google provider is not enabled in the Firebase Console. Visit https://console.firebase.google.com/ to enable it.");
+        }
+      });
+    }
+  };
+  
   const logout = () => auth && signOut(auth);
 
   return (
