@@ -1,38 +1,81 @@
+
 "use client";
 
+import { useMemo } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building } from 'lucide-react';
-
-const mockChartData = [
-  { hour: '08:00', volume: 45 },
-  { hour: '10:00', volume: 120 },
-  { hour: '12:00', volume: 180 },
-  { hour: '14:00', volume: 150 },
-  { hour: '16:00', volume: 90 },
-  { hour: '18:00', volume: 30 },
-];
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 function AdminContent() {
-  const { tickets, departments } = useQueue();
+  const { tickets, departments, isAdmin, isUserLoading } = useQueue();
 
-  const totalTickets = tickets.length;
-  const completed = tickets.filter(t => t.status === 'COMPLETED').length;
-  const waiting = tickets.filter(t => t.status === 'WAITING').length;
-  const noShow = tickets.filter(t => t.status === 'NOSHOW').length;
+  const analytics = useMemo(() => {
+    const total = tickets.length;
+    const completed = tickets.filter(t => t.status === 'COMPLETED').length;
+    const waiting = tickets.filter(t => t.status === 'WAITING').length;
+    const noShow = tickets.filter(t => t.status === 'NOSHOW').length;
+
+    // Calculate Average Wait Time
+    const servedTickets = tickets.filter(t => t.status === 'SERVING' || t.status === 'COMPLETED');
+    const totalWaitMs = servedTickets.reduce((acc, t) => {
+      if (t.calledAt) {
+        return acc + (new Date(t.calledAt).getTime() - new Date(t.createdAt).getTime());
+      }
+      return acc;
+    }, 0);
+    const avgWaitMins = servedTickets.length > 0 ? (totalWaitMs / servedTickets.length / 60000).toFixed(1) : '0';
+
+    // Bucket Volume by Hour
+    const hourlyData: Record<string, number> = {};
+    tickets.forEach(t => {
+      const hour = new Date(t.createdAt).getHours();
+      const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+      hourlyData[hourStr] = (hourlyData[hourStr] || 0) + 1;
+    });
+
+    const chartData = Object.entries(hourlyData)
+      .map(([hour, volume]) => ({ hour, volume }))
+      .sort((a, b) => a.hour.localeCompare(b.hour));
+
+    return { total, completed, waiting, noShow, avgWaitMins, chartData };
+  }, [tickets]);
+
+  if (isUserLoading) {
+    return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">Loading...</div>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">
+        <Card className="max-w-md w-full p-12 text-center space-y-6 rounded-[3rem] border-none shadow-2xl glass">
+          <div className="w-24 h-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+            <ShieldAlert size={48} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
+            <p className="text-muted-foreground font-medium">This dashboard is restricted to system administrators.</p>
+          </div>
+          <Link href="/">
+            <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
   const stats = [
-    { label: 'Total Tickets', value: totalTickets, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Wait Time (Avg)', value: '14.2m', icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
-    { label: 'Served', value: completed, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
-    { label: 'Abandonment', value: noShow, icon: AlertTriangle, color: 'text-destructive', bg: 'bg-destructive/10' },
+    { label: 'Total Tickets', value: analytics.total, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Wait Time (Avg)', value: `${analytics.avgWaitMins}m`, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
+    { label: 'Served', value: analytics.completed, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
+    { label: 'Abandonment', value: analytics.noShow, icon: AlertTriangle, color: 'text-destructive', bg: 'bg-destructive/10' },
   ];
 
   return (
     <div className="min-h-screen bg-[#F4F4F7] p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Admin Header */}
         <div className="flex justify-between items-end">
           <div className="space-y-1">
             <h1 className="text-3xl font-black text-secondary uppercase tracking-tight">University Dashboard</h1>
@@ -40,24 +83,21 @@ function AdminContent() {
               <Building size={16} /> Global Enrollment System Overview
             </p>
           </div>
-          <div className="flex gap-2">
-            <div className="bg-white px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
-              <span className="w-2 h-2 bg-success rounded-full" />
-              Real-time Feed Active
-            </div>
+          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
+            <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+            Live Analytics Active
           </div>
         </div>
 
-        {/* Bento Stats */}
         <div className="grid grid-cols-4 gap-6">
           {stats.map((stat, i) => (
             <Card key={i} className="border-none glass rounded-[2rem] shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
-                  <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color} transition-colors`}>
+                  <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
                     <stat.icon size={24} />
                   </div>
-                  <TrendingUp size={20} className="text-muted-foreground opacity-20 group-hover:opacity-100 transition-opacity" />
+                  <TrendingUp size={20} className="text-muted-foreground opacity-20" />
                 </div>
                 <div className="mt-4">
                   <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest">{stat.label}</h3>
@@ -68,23 +108,17 @@ function AdminContent() {
           ))}
         </div>
 
-        {/* Main Analytics Grid */}
         <div className="grid grid-cols-12 gap-8">
-          {/* Chart Area */}
           <Card className="col-span-8 border-none liquid-glass rounded-[2.5rem] shadow-lg p-8">
             <CardHeader className="p-0 mb-8 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-black text-secondary uppercase">Peak Hourly Volume</CardTitle>
-                <p className="text-sm text-muted-foreground font-medium">Daily student traffic distribution</p>
-              </div>
-              <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
-                <button className="px-3 py-1 text-[10px] font-black bg-white rounded-md shadow-sm uppercase">Today</button>
-                <button className="px-3 py-1 text-[10px] font-black text-muted-foreground uppercase">Week</button>
+                <CardTitle className="text-xl font-black text-secondary uppercase">Hourly Volume</CardTitle>
+                <p className="text-sm text-muted-foreground font-medium">Real-time student traffic distribution</p>
               </div>
             </CardHeader>
             <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockChartData}>
+                <BarChart data={analytics.chartData}>
                   <defs>
                     <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#1856FF" stopOpacity={0.8}/>
@@ -104,33 +138,36 @@ function AdminContent() {
             </div>
           </Card>
 
-          {/* Side Info */}
           <div className="col-span-4 space-y-6">
             <Card className="border-none glass rounded-[2.5rem] shadow-sm p-8">
-              <h3 className="text-lg font-black text-secondary uppercase mb-6">Staff Efficiency</h3>
+              <h3 className="text-lg font-black text-secondary uppercase mb-6">By Building</h3>
               <div className="space-y-6">
-                {['Counter 01', 'Counter 02', 'Counter 03'].map((counter, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="flex justify-between text-xs font-black uppercase tracking-widest text-muted-foreground">
-                      <span>{counter}</span>
-                      <span className="text-primary">{90 - i * 5}%</span>
+                {departments.map((dept, i) => {
+                  const deptTickets = tickets.filter(t => t.departmentId === dept.id).length;
+                  const percentage = analytics.total > 0 ? (deptTickets / analytics.total) * 100 : 0;
+                  return (
+                    <div key={dept.id} className="space-y-2">
+                      <div className="flex justify-between text-xs font-black uppercase tracking-widest text-muted-foreground">
+                        <span>{dept.acronym}</span>
+                        <span className="text-primary">{Math.round(percentage)}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
+                      </div>
                     </div>
-                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary" style={{ width: `${90 - i * 5}%` }} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
 
             <Card className="border-none bg-primary rounded-[2.5rem] shadow-xl p-8 text-white">
-              <h3 className="text-lg font-black uppercase mb-2">System Health</h3>
-              <p className="text-sm font-medium text-white/70 mb-6">WebSocket performance and data sync latency</p>
+              <h3 className="text-lg font-black uppercase mb-2">Sync Status</h3>
+              <p className="text-sm font-medium text-white/70 mb-6">Real-time cloud database connection is healthy</p>
               <div className="flex items-center gap-4">
                 <div className="flex-1 h-1 bg-white/20 rounded-full">
-                  <div className="h-full bg-white w-[98%] rounded-full" />
+                  <div className="h-full bg-white w-[100%] rounded-full" />
                 </div>
-                <span className="text-xs font-black">98.2ms</span>
+                <span className="text-xs font-black">Connected</span>
               </div>
             </Card>
           </div>

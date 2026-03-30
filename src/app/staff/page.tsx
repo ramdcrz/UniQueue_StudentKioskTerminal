@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,16 +7,41 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
+import { useUser } from '@/firebase';
 
 function StaffContent() {
-  const { staffCounter, counters, setStaffCounter, callNextTicket, tickets, updateTicketStatus } = useQueue();
+  const { staffCounter, counters, setStaffCounter, callNextTicket, tickets, updateTicketStatus, isStaff, isUserLoading } = useQueue();
+  const { user } = useUser();
   const [loading, setLoading] = useState(false);
 
-  // Auto-select first counter for demo
   useEffect(() => {
-    if (!staffCounter) setStaffCounter(counters[0].id);
+    if (!staffCounter && counters.length > 0) setStaffCounter(counters[0].id);
   }, [counters, staffCounter, setStaffCounter]);
+
+  if (isUserLoading) {
+    return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">Loading...</div>;
+  }
+
+  if (!isStaff) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">
+        <Card className="max-w-md w-full p-12 text-center space-y-6 rounded-[3rem] border-none shadow-2xl glass">
+          <div className="w-24 h-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+            <ShieldAlert size={48} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
+            <p className="text-muted-foreground font-medium">This terminal is restricted to authorized staff members.</p>
+          </div>
+          <Link href="/">
+            <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
   const currentTicket = tickets.find(t => t.id === staffCounter?.currentTicketId);
 
@@ -43,14 +69,15 @@ function StaffContent() {
   return (
     <div className="min-h-screen bg-[#F4F4F7] p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        {/* Navbar */}
         <header className="flex justify-between items-center bg-white p-4 rounded-3xl shadow-sm border border-white/40 glass">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg">
               <User size={24} />
             </div>
             <div>
-              <h1 className="font-black text-secondary">STAFF: JOHN DOE</h1>
+              <h1 className="font-black text-secondary uppercase">
+                STAFF: {user?.displayName || user?.email?.split('@')[0] || "Unknown"}
+              </h1>
               <p className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
                 <span className="w-2 h-2 bg-success rounded-full" />
                 {staffCounter?.serviceType} COUNTER {staffCounter?.counterNumber}
@@ -61,15 +88,15 @@ function StaffContent() {
             <Badge variant="outline" className="px-4 py-1.5 rounded-full border-2 border-primary/20 text-primary font-bold">
               {staffCounter?.status}
             </Badge>
-            <Button variant="ghost" size="icon" className="rounded-2xl text-destructive hover:bg-destructive/10">
-              <LogOut size={20} />
-            </Button>
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="rounded-2xl text-destructive hover:bg-destructive/10">
+                <LogOut size={20} />
+              </Button>
+            </Link>
           </div>
         </header>
 
-        {/* Dashboard Grid */}
         <div className="grid grid-cols-12 gap-8">
-          {/* Main Controls */}
           <div className="col-span-8 space-y-8">
             <motion.div 
               layout
@@ -124,7 +151,6 @@ function StaffContent() {
             </motion.div>
           </div>
 
-          {/* Stats Sidebar */}
           <div className="col-span-4 space-y-6">
             <Card className="glass p-6 rounded-[2rem] border-white/40 shadow-sm">
               <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-4">Live Queue Stats</h3>
@@ -147,8 +173,10 @@ function StaffContent() {
                     </p>
                   </div>
                   <div className="bg-white/50 p-4 rounded-2xl">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase">Avg. Time</p>
-                    <p className="text-2xl font-black jet-mono text-secondary">12m</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">Abandonment</p>
+                    <p className="text-2xl font-black jet-mono text-secondary">
+                      {tickets.filter(t => t.status === 'NOSHOW').length}
+                    </p>
                   </div>
                 </div>
               </div>

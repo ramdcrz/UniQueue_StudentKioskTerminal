@@ -22,14 +22,12 @@ function MonitorContent() {
   }, []);
 
   const currentlyServing = useMemo(() => {
-    // Only show tickets for the selected department that are currently CALLED or SERVING
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'CALLED' || t.status === 'SERVING'))
       .slice(0, 4);
   }, [tickets, currentDepartment]);
   
   const history = useMemo(() => {
-    // Only show historical tickets for the selected department
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'COMPLETED' || t.status === 'NOSHOW'))
       .sort((a, b) => {
@@ -60,7 +58,7 @@ function MonitorContent() {
         </div>
         <div className="text-right">
           <div className="text-4xl font-bold jet-mono text-secondary">
-            {time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+            {time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
           </div>
           <div className="text-sm font-bold text-muted-foreground uppercase">
             {time ? time.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : 'Loading...'}
@@ -137,7 +135,6 @@ function MonitorContent() {
             </AnimatePresence>
           </div>
           
-          {/* Dept Switcher for Monitor Demo using standardized acronyms */}
           <div className="mt-6 pt-6 border-t border-border/50 flex flex-wrap gap-2 justify-center">
             {departments.map(d => (
               <button 

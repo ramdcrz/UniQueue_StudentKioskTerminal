@@ -34,6 +34,7 @@ interface QueueContextType {
   loginWithGoogle: () => void;
   logout: () => void;
   isAdmin: boolean;
+  isStaff: boolean;
 }
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
@@ -60,6 +61,10 @@ const ADMIN_EMAILS = [
   'ramildeocariza009@gmail.com'
 ];
 
+const STAFF_EMAILS = [
+  'nemostyles009@gmail.com'
+];
+
 export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const db = useFirestore();
   const auth = useAuth();
@@ -73,13 +78,15 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
+  
   const isAdmin = !!user && user.emailVerified && !!user.email && ADMIN_EMAILS.includes(user.email);
+  const isStaff = !!user && user.emailVerified && !!user.email && (STAFF_EMAILS.includes(user.email) || ADMIN_EMAILS.includes(user.email));
 
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
       signInAnonymously(auth).catch((err) => {
         if (err.code === 'auth/operation-not-allowed') {
-          console.warn("Firebase Auth: Anonymous provider is not enabled in the Firebase Console. Visit https://console.firebase.google.com/ to enable it.");
+          console.warn("Firebase Auth: Anonymous provider is not enabled in the Firebase Console.");
         }
       });
     }
@@ -144,7 +151,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     
-    // We use buildingTickets to determine the next number in sequence
     const buildingTickets = tickets.filter(t => t.departmentId === currentDeptId);
     const num = (buildingTickets.length + 1).toString().padStart(3, '0');
     
@@ -264,7 +270,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (auth) {
       initiateGoogleSignIn(auth).catch((err) => {
         if (err.code === 'auth/operation-not-allowed') {
-          console.error("Firebase Auth: Google provider is not enabled in the Firebase Console. Visit https://console.firebase.google.com/ to enable it.");
+          console.error("Firebase Auth: Google provider is not enabled in the Firebase Console.");
         }
       });
     }
@@ -287,7 +293,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isUserLoading,
       loginWithGoogle,
       logout,
-      isAdmin
+      isAdmin,
+      isStaff
     }}>
       {children}
     </QueueContext.Provider>
