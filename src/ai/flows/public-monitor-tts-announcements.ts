@@ -38,8 +38,10 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
     outputSchema: PublicMonitorTTSAnnouncementsOutputSchema,
   },
   async input => {
-    const {ticketNumber, departmentName, serviceType, counterNumber} = input;
-    const announcementText = `Queue number ${ticketNumber}, please proceed to ${departmentName} ${serviceType} Counter ${counterNumber}.`;
+    const {ticketNumber, counterNumber} = input;
+    
+    // Using a more direct prompt to minimize generation time and leading silence
+    const announcementText = `Number ${ticketNumber}. Proceed to Counter ${counterNumber}.`;
 
     const {media} = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
@@ -58,13 +60,11 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
       throw new Error('No audio media returned from TTS generation.');
     }
 
-    // Extract base64 audio data and convert to Buffer
     const audioBuffer = Buffer.from(
       media.url.substring(media.url.indexOf(',') + 1),
       'base64'
     );
 
-    // Convert PCM audio to WAV format
     const wavBase64 = await toWav(audioBuffer);
 
     return {
@@ -73,7 +73,6 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
   }
 );
 
-// Helper function to convert PCM audio buffer to WAV base64 string
 async function toWav(
   pcmData: Buffer,
   channels = 1,

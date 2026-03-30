@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useParams } from 'next/navigation';
@@ -49,7 +48,9 @@ function StatusContent() {
   }
 
   const department = departments.find(d => d.id === ticket.departmentId);
-  const counter = counters.find(c => c.id === ticket.counterId);
+  
+  // Find the counter assigned to this ticket
+  const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
   
   // Calculate students ahead in the same department and service type
   const waitingAhead = tickets.filter(t => 
@@ -128,7 +129,9 @@ function StatusContent() {
               >
                 <UserCheck size={32} className="mx-auto" />
                 <h3 className="text-xl font-black uppercase">IT&apos;S YOUR TURN!</h3>
-                <p className="text-sm font-bold opacity-90 uppercase">Proceed to Counter {counter?.counterNumber || '??'}</p>
+                <p className="text-sm font-bold opacity-90 uppercase">
+                  Proceed to Counter {counter?.counterNumber || '??'}
+                </p>
               </motion.div>
             )}
           </div>

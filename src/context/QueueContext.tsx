@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -255,21 +254,19 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentTicketId: nextTicket.id
       }).catch(() => {});
 
-      try {
-        const dept = departments.find(d => d.id === counter.departmentId);
-        const result = await announceTicket({
-          ticketNumber: nextTicket.queueNumber,
-          departmentName: dept?.name || "University",
-          serviceType: nextTicket.serviceType,
-          counterNumber: counter.counterNumber,
-        });
+      // Voice announcement (Non-blocking playback)
+      const dept = departments.find(d => d.id === counter.departmentId);
+      announceTicket({
+        ticketNumber: nextTicket.queueNumber,
+        departmentName: dept?.name || "University",
+        serviceType: nextTicket.serviceType,
+        counterNumber: counter.counterNumber,
+      }).then(result => {
         if (result.media) {
           const audio = new Audio(result.media);
-          audio.play();
+          audio.play().catch(() => {});
         }
-      } catch (e) {
-        // TTS failures are non-critical
-      }
+      }).catch(() => {});
     }
   };
 
