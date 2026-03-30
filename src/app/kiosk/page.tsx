@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Receipt, CheckCircle2, Building2, Camera, QrCode } from 'lucide-react';
+import { CreditCard, Receipt, Building2, Camera } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 /**
@@ -36,10 +35,14 @@ function KioskContent() {
     return () => clearInterval(timer);
   }, [step]);
 
-  const handleGetQueue = (service: 'CASHIER' | 'ACCOUNTING' = 'CASHIER') => {
-    const ticket = createTicket(service);
-    setLastTicket(ticket);
-    setStep('success');
+  const handleGetQueue = async (service: 'CASHIER' | 'ACCOUNTING' = 'CASHIER') => {
+    try {
+      const ticket = await createTicket(service);
+      setLastTicket(ticket);
+      setStep('success');
+    } catch (error) {
+      console.error("Failed to create ticket", error);
+    }
   };
 
   const handleStart = () => {
@@ -50,13 +53,13 @@ function KioskContent() {
     }
   };
 
-  const statusUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/status/${lastTicket?.id}` 
+  // QR Code URL includes departmentId and ticketId for direct lookup
+  const statusUrl = typeof window !== 'undefined' && lastTicket
+    ? `${window.location.origin}/status/${lastTicket.departmentId}/${lastTicket.id}` 
     : '';
 
   return (
     <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 rounded-full blur-[100px]" />
 
