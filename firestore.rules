@@ -4,18 +4,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * UniQueue Security Rules - Prototype Version
+     * UniQueue Security Rules
      * 
-     * CORE PHILOSOPHY
-     * This ruleset enforces a strict Role-Based Access Control (RBAC) and Department-Based Access Control (DBAC) 
-     * model. Security is driven by the user's document state and a dedicated superadmin collection.
-     * 
-     * DATA STRUCTURE
-     * - /roles_superadmin/{userId}: Presence of a document grants global administrative access.
-     * - /users/{userId}: User profiles containing 'role' and 'departmentId'.
-     * - /departments/{departmentId}: Top-level organizational units.
-     * - /departments/{departmentId}/counters/{counterId}: Counters scoped to a department.
-     * - /departments/{departmentId}/tickets/{ticketId}: Queue tickets scoped to a department.
+     * Security is driven by the user's document state and a dedicated superadmin collection.
+     * Some read operations are public to support public monitors and student tracking.
      */
 
     // --- Helper Functions ---
@@ -36,12 +28,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
     function belongsToDept(deptId) {
-      // Robust check: ensures user exists and has a deptId
       return isSignedIn() && (isSuperadmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().departmentId == deptId));
     }
 
@@ -61,36 +48,36 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isSuperadmin();
       allow list: if isSuperadmin();
       allow create: if isOwner(userId) || isSuperadmin();
-      allow update: if isExistingOwner(userId) || isSuperadmin();
+      allow update: if isOwner(userId) || isSuperadmin();
       allow delete: if isSuperadmin();
     }
 
     match /departments/{departmentId} {
-      allow get, list: if isSignedIn();
+      // Departments are public so students can browse services
+      allow get, list: if true;
       allow create, update, delete: if isSuperadmin();
     }
 
     match /departments/{departmentId}/counters/{counterId} {
-      allow get: if isSignedIn();
-      allow list: if belongsToDept(departmentId);
+      allow get: if true;
+      allow list: if isSignedIn();
       allow create: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
-      allow update: if resource != null && (isSuperadmin() || (belongsToDept(departmentId) && (hasRole('DeptAdmin') || hasRole('Staff'))));
-      allow delete: if resource != null && (isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId)));
+      allow update: if isSuperadmin() || (belongsToDept(departmentId) && (hasRole('DeptAdmin') || hasRole('Staff')));
+      allow delete: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
     }
 
     match /departments/{departmentId}/tickets/{ticketId} {
-      // Students scan QR codes, so 'get' and 'list' are available to signed-in/anonymous users
-      // to support public monitor views and status tracking.
-      allow get, list: if isSignedIn();
+      // Public monitor and student mobile tracking need public access
+      allow get, list: if true;
 
-      // Kiosks create tickets. Ensure the ticket's departmentId matches the path.
-      allow create: if isSignedIn() && request.resource.data.departmentId == departmentId;
+      // Kiosks create tickets.
+      allow create: if isSignedIn();
 
-      // Staff and Admins update ticket statuses (e.g., Calling, Serving, Completed).
-      allow update: if resource != null && (isSuperadmin() || (belongsToDept(departmentId) && (hasRole('DeptAdmin') || hasRole('Staff'))));
+      // Staff and Admins update ticket statuses.
+      allow update: if isSuperadmin() || (belongsToDept(departmentId) && (hasRole('DeptAdmin') || hasRole('Staff')));
 
-      // Deletions typically restricted to Admins or Superadmins.
-      allow delete: if resource != null && (isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId)));
+      // Deletions typically restricted to Admins.
+      allow delete: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
     }
   }
 }

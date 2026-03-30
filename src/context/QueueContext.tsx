@@ -52,7 +52,7 @@ const INITIAL_COUNTERS: Counter[] = [
 
 export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const db = useFirestore();
-  const { auth } = useAuth() ? { auth: useAuth() } : { auth: null };
+  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   
   const [departments] = useState<Department[]>(INITIAL_DEPARTMENTS);
@@ -64,16 +64,16 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
 
+  // Ensure user is signed in (anonymously if needed)
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
-      signInAnonymously(auth).catch(err => {
-        // Auth errors handled silently or via central logger
-      });
+      signInAnonymously(auth).catch(() => {});
     }
   }, [auth, user, isUserLoading]);
 
+  // Set up real-time listeners for tickets, but only after auth is resolved
   useEffect(() => {
-    if (!db) return;
+    if (!db || isUserLoading) return;
 
     const unsubscribes = departments.map(dept => {
       const ticketsRef = collection(db, 'departments', dept.id, 'tickets');
@@ -89,7 +89,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           
           setTickets(prev => {
             const otherDeptsTickets = prev.filter(t => t.departmentId !== dept.id);
-            return [...otherDeptsTickets, ...deptTickets].sort((a, b) => 
+            const combined = [...otherDeptsTickets, ...deptTickets];
+            return combined.sort((a, b) => 
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
           });
@@ -105,7 +106,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [db, departments]);
+  }, [db, departments, isUserLoading]);
 
   const createTicket = async (serviceType: ServiceType) => {
     if (!db || !currentDeptId) throw new Error("Database or Department not ready");
@@ -124,7 +125,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     
-    // Non-blocking addDoc with contextual error handling
     addDoc(ticketsRef, ticketData).catch(async () => {
       const permissionError = new FirestorePermissionError({
         path: ticketsRef.path,
@@ -134,8 +134,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       errorEmitter.emit('permission-error', permissionError);
     });
 
-    // Return a pessimistic mock for immediate UI update if needed, 
-    // though the listener will update the real state shortly.
     return { ...ticketData, id: 'temp-id-' + Date.now() };
   };
 
@@ -201,10 +199,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           serviceType: nextTicket.serviceType,
           counterNumber: counter.counterNumber,
         });
-        const audio = new Audio(result.media);
-        audio.play();
+        if (result.media) {
+          const audio = new Audio(result.media);
+          audio.play();
+        }
       } catch (e) {
-        // TTS failures are non-critical for the core flow
+        // TTS failures are non-critical
       }
     }
   };
