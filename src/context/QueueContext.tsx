@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -11,6 +12,7 @@ import {
   updateDoc,
   query, 
   orderBy,
+  Firestore,
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
@@ -69,7 +71,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Sync Tickets from Firestore
   useEffect(() => {
-    if (!db || isUserLoading) return;
+    if (!db || isUserLoading || !user) return;
 
     const unsubscribes = departments.map(dept => {
       const ticketsRef = collection(db, 'departments', dept.id, 'tickets');
@@ -102,11 +104,11 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [db, departments, isUserLoading]);
+  }, [db, departments, isUserLoading, user]);
 
   // Sync Counters from Firestore
   useEffect(() => {
-    if (!db || isUserLoading) return;
+    if (!db || isUserLoading || !user) return;
 
     const unsubscribes = departments.map(dept => {
       const countersRef = collection(db, 'departments', dept.id, 'counters');
@@ -137,7 +139,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [db, departments, isUserLoading]);
+  }, [db, departments, isUserLoading, user]);
 
   // Seed counters if they don't exist (Prototype Helper)
   useEffect(() => {
@@ -191,8 +193,9 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     
     if (status === 'CALLED') updates.calledAt = new Date().toISOString();
-    if (status === 'COMPLETED') updates.completedAt = new Date().toISOString();
-    if (status === 'NOSHOW') updates.completedAt = new Date().toISOString(); // Use for history sorting
+    if (status === 'COMPLETED' || status === 'NOSHOW') {
+      updates.completedAt = new Date().toISOString();
+    }
 
     updateDoc(ticketRef, updates).catch(async () => {
       const permissionError = new FirestorePermissionError({
@@ -208,10 +211,18 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const counter = counters.find(c => c.currentTicketId === ticketId);
       if (counter) {
         const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
-        updateDoc(counterRef, {
+        const counterUpdates = {
           status: 'VACANT',
           currentTicketId: null
-        }).catch(() => {});
+        };
+        updateDoc(counterRef, counterUpdates).catch(async () => {
+          const permissionError = new FirestorePermissionError({
+            path: counterRef.path,
+            operation: 'update',
+            requestResourceData: counterUpdates,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
       }
     }
   };
@@ -238,6 +249,11 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updatedAt: new Date().toISOString()
       };
 
+      const counterUpdates = {
+        status: 'SERVING',
+        currentTicketId: nextTicket.id
+      };
+
       // Update Ticket
       updateDoc(ticketRef, ticketUpdates).catch(async () => {
         const permissionError = new FirestorePermissionError({
@@ -249,10 +265,14 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       
       // Update Counter
-      updateDoc(counterRef, {
-        status: 'SERVING',
-        currentTicketId: nextTicket.id
-      }).catch(() => {});
+      updateDoc(counterRef, counterUpdates).catch(async () => {
+        const permissionError = new FirestorePermissionError({
+          path: counterRef.path,
+          operation: 'update',
+          requestResourceData: counterUpdates,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
 
       // Voice announcement (Non-blocking playback)
       const dept = departments.find(d => d.id === counter.departmentId);

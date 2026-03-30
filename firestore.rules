@@ -7,7 +7,8 @@ service cloud.firestore {
      * UniQueue Security Rules
      * 
      * Security is driven by the user's document state and a dedicated superadmin collection.
-     * Some read operations are public to support public monitors and student tracking.
+     * For the prototype, we allow signed-in users (including anonymous staff) to manage 
+     * tickets and counters to ensure a smooth demo experience.
      */
 
     // --- Helper Functions ---
@@ -54,32 +55,22 @@ service cloud.firestore {
 
     match /departments/{departmentId} {
       // Departments are public so students can browse services
-      allow get, list: if true;
+      allow read: if true;
       allow create, update, delete: if isSuperadmin();
     }
 
     match /departments/{departmentId}/counters/{counterId} {
-      allow get: if true;
-      allow list: if isSignedIn();
-      allow create: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
-      // For prototype: allow signed in users to update counters (for staff terminal)
-      allow update: if isSignedIn();
-      allow delete: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
+      // Public monitor needs to see counter status
+      allow read: if true;
+      // Allow signed in users to manage counters for prototype demo
+      allow write: if isSignedIn();
     }
 
     match /departments/{departmentId}/tickets/{ticketId} {
       // Public monitor and student mobile tracking need public access
-      allow get, list: if true;
-
-      // Kiosks and status pages create/update.
-      allow create: if isSignedIn();
-
-      // Staff and Admins update ticket statuses. 
-      // For prototype: allow any signed in user to update (for anonymous staff demo)
-      allow update: if isSignedIn();
-
-      // Deletions typically restricted to Admins.
-      allow delete: if isSuperadmin() || (hasRole('DeptAdmin') && belongsToDept(departmentId));
+      allow read: if true;
+      // Allow signed in users (Kiosks/Staff) to manage tickets
+      allow write: if isSignedIn();
     }
   }
 }
