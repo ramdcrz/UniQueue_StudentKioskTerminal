@@ -29,7 +29,8 @@ function AdminContent() {
 
     const hourlyData: Record<string, number> = {};
     tickets.forEach(t => {
-      const hour = new Date(t.createdAt).getHours();
+      const date = new Date(t.createdAt);
+      const hour = date.getHours();
       const hourStr = `${hour.toString().padStart(2, '0')}:00`;
       hourlyData[hourStr] = (hourlyData[hourStr] || 0) + 1;
     });
@@ -56,7 +57,7 @@ function AdminContent() {
             <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
             <p className="text-muted-foreground font-medium">This dashboard is restricted to system administrators.</p>
           </div>
-          <div className="pb-4">
+          <div className="pb-8">
             <Link href="/">
               <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
             </Link>

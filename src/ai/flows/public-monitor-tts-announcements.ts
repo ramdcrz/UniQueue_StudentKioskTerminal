@@ -31,6 +31,7 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
   },
   async input => {
     const {ticketNumber, counterNumber} = input;
+    // Normalized announcement string for speed and clarity
     const announcementText = `Number ${ticketNumber}, Counter ${counterNumber}.`;
 
     const {media} = await ai.generate({
@@ -43,7 +44,7 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
           },
         },
       },
-      prompt: `Speak clearly and at a normal, natural pace: ${announcementText}`,
+      prompt: `Speak at a normal, conversational speed: ${announcementText}`,
     });
 
     if (!media) throw new Error('No audio returned.');

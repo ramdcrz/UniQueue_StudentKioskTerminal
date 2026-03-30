@@ -62,7 +62,7 @@ function MonitorContent() {
             <AnimatePresence mode="popLayout">
               {currentlyServing.length > 0 ? (
                 currentlyServing.map((ticket) => {
-                  const counter = counters.find(c => c.id === ticket.counterId);
+                  const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
                   return (
                     <motion.div
                       key={ticket.id}
