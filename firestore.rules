@@ -23,7 +23,8 @@ service cloud.firestore {
           'ramiljr.deocariza@neu.edu.ph',
           'djemandreif.reyes@neu.edu.ph',
           'johnmarc.sanchez@neu.edu.ph',
-          'jermainecarl.miranda@neu.edu.ph'
+          'jermainecarl.miranda@neu.edu.ph',
+          'ramildeocariza009@gmail.com'
         ])
       );
     }
@@ -61,7 +62,7 @@ service cloud.firestore {
     match /departments/{departmentId}/counters/{counterId} {
       // Public monitor needs to see counter status
       allow read: if true;
-      // Allow signed in users to manage counters
+      // Allow signed in users (Staff/Admin) to manage counters
       allow write: if isSignedIn();
     }
 

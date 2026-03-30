@@ -56,7 +56,8 @@ const ADMIN_EMAILS = [
   'ramiljr.deocariza@neu.edu.ph',
   'djemandreif.reyes@neu.edu.ph',
   'johnmarc.sanchez@neu.edu.ph',
-  'jermainecarl.miranda@neu.edu.ph'
+  'jermainecarl.miranda@neu.edu.ph',
+  'ramildeocariza009@gmail.com'
 ];
 
 export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -140,11 +141,13 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const createTicket = async (serviceType: ServiceType) => {
     if (!db || !currentDepartment) throw new Error("Database or Department not ready");
+    const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
+    const newDocRef = doc(ticketsRef);
+    
+    // We use buildingTickets to determine the next number in sequence
     const buildingTickets = tickets.filter(t => t.departmentId === currentDeptId);
     const num = (buildingTickets.length + 1).toString().padStart(3, '0');
     
-    const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
-    const newDocRef = doc(ticketsRef);
     const ticketData = {
       queueNumber: `${currentDepartment.code}-${num}`,
       serviceType,
