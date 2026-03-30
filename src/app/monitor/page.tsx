@@ -4,11 +4,13 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Volume2 } from 'lucide-react';
+import { Building2, Volume2, Play } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 function MonitorContent() {
   const { tickets, counters, currentDepartment, departments, setCurrentDepartment } = useQueue();
   const [time, setTime] = useState<Date | null>(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const lastAnnouncedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -26,35 +28,39 @@ function MonitorContent() {
 
   // Browser Native TTS Announcement Logic
   useEffect(() => {
+    if (!isAudioEnabled) return;
+
     const speak = (text: string) => {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         // Cancel any pending speech to avoid backlog
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9; // Slightly slower for better clarity
+        utterance.rate = 0.85; // Slightly slower for better clarity
         utterance.pitch = 1.0;
         
-        // Find a suitable voice (optional, defaults to system)
         const voices = window.speechSynthesis.getVoices();
         const preferredVoice = voices.find(v => v.lang.includes('en-US')) || voices[0];
-        if (preferredVoice) utterance.voice = preferredVoice;
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
 
         window.speechSynthesis.speak(utterance);
       }
     };
 
-    const latestCalled = currentlyServing[0];
-    if (latestCalled && latestCalled.status === 'CALLED' && latestCalled.id !== lastAnnouncedId.current) {
+    // Find the most recently CALLED ticket that hasn't been announced yet
+    const latestCalled = currentlyServing.find(t => t.status === 'CALLED');
+    
+    if (latestCalled && latestCalled.id !== lastAnnouncedId.current) {
       const counter = counters.find(c => c.id === latestCalled.counterId || c.currentTicketId === latestCalled.id);
       if (counter) {
-        // Break number into digits for clearer announcement (e.g. M-0-0-1)
         const digits = latestCalled.queueNumber.split('').join(' ');
         speak(`Ticket number ${digits}. Please proceed to counter ${counter.counterNumber}.`);
         lastAnnouncedId.current = latestCalled.id;
       }
     }
-  }, [currentlyServing, counters]);
+  }, [currentlyServing, counters, isAudioEnabled]);
   
   const history = useMemo(() => {
     return tickets
@@ -64,7 +70,35 @@ function MonitorContent() {
   }, [tickets, currentDepartment]);
 
   return (
-    <div className="h-screen bg-[#F4F4F7] p-8 overflow-hidden flex flex-col space-y-6">
+    <div className="h-screen bg-[#F4F4F7] p-8 overflow-hidden flex flex-col space-y-6 relative">
+      <AnimatePresence>
+        {!isAudioEnabled && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 glass flex items-center justify-center p-8 text-center"
+          >
+            <div className="max-w-md space-y-6">
+              <div className="w-24 h-24 bg-primary text-white rounded-full flex items-center justify-center mx-auto shadow-2xl animate-pulse">
+                <Volume2 size={48} />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-3xl font-black text-secondary uppercase">Ready to Sync</h2>
+                <p className="text-muted-foreground font-medium">Please click the button below to enable real-time audio announcements.</p>
+              </div>
+              <Button 
+                onClick={() => setIsAudioEnabled(true)}
+                className="w-full h-16 rounded-2xl bg-secondary text-xl font-bold gap-3 shadow-xl hover:scale-105 transition-transform"
+              >
+                <Play size={24} />
+                START MONITOR
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex justify-between items-center px-4">
         <div className="flex items-center space-x-4">
           <div className="p-3 bg-primary text-white rounded-2xl shadow-lg">
@@ -75,8 +109,8 @@ function MonitorContent() {
               {currentDepartment?.name}
             </h1>
             <p className="text-muted-foreground font-semibold flex items-center gap-2">
-              <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-              LIVE MONITOR
+              <span className={`w-2 h-2 rounded-full animate-pulse ${isAudioEnabled ? 'bg-success' : 'bg-destructive'}`} />
+              {isAudioEnabled ? 'LIVE MONITOR ACTIVE' : 'AUDIO MUTED'}
             </p>
           </div>
         </div>
