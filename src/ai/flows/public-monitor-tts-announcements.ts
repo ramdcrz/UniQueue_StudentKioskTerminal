@@ -31,7 +31,7 @@ const publicMonitorTTSAnnouncementsFlow = ai.defineFlow(
   },
   async input => {
     const {ticketNumber, counterNumber} = input;
-    // Normalized announcement string for speed and clarity
+    // Standardized announcement string for clarity and speed
     const announcementText = `Number ${ticketNumber}, Counter ${counterNumber}.`;
 
     const {media} = await ai.generate({

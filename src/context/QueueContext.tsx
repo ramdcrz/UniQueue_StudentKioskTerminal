@@ -14,8 +14,8 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
-import { signInAnonymously, signOut } from 'firebase/auth';
-import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
+import { signOut } from 'firebase/auth';
+import { initiateAnonymousSignIn, initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -72,16 +72,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
   
-  const isAdmin = !!user && user.emailVerified && !!user.email && ADMIN_EMAILS.includes(user.email);
-  const isStaff = !!user && user.emailVerified && !!user.email && (STAFF_EMAILS.includes(user.email) || ADMIN_EMAILS.includes(user.email));
+  const isAdmin = !!user && !!user.email && ADMIN_EMAILS.includes(user.email);
+  const isStaff = !!user && !!user.email && (STAFF_EMAILS.includes(user.email) || ADMIN_EMAILS.includes(user.email));
 
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
-      signInAnonymously(auth).catch((err) => {
-        if (err.code === 'auth/operation-not-allowed') {
-          console.warn("Firebase Auth: Anonymous provider is not enabled.");
-        }
-      });
+      initiateAnonymousSignIn(auth).catch(() => {});
     }
   }, [auth, user, isUserLoading]);
 

@@ -35,9 +35,11 @@ function StaffContent() {
             <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
             <p className="text-muted-foreground font-medium">This terminal is restricted to authorized staff members.</p>
           </div>
-          <Link href="/">
-            <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
-          </Link>
+          <div className="pb-12">
+            <Link href="/">
+              <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
+            </Link>
+          </div>
         </Card>
       </div>
     );
