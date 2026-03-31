@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from 'react';
@@ -79,14 +80,28 @@ function MonitorContent() {
 
     const speak = (text: string) => {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0; 
+        utterance.rate = 0.9; // Slightly slower for better clarity
         utterance.pitch = 1.0;
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(v => v.lang.includes('en-US')) || voices[0];
-        if (preferredVoice) utterance.voice = preferredVoice;
-        window.speechSynthesis.speak(utterance);
+        
+        const announce = () => {
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(v => v.lang.includes('en-US')) || voices[0];
+          if (preferredVoice) utterance.voice = preferredVoice;
+          
+          // Small safety delay to ensure previous speech is fully cleared
+          window.speechSynthesis.cancel();
+          setTimeout(() => {
+            window.speechSynthesis.speak(utterance);
+          }, 50);
+        };
+
+        // Handle case where voices might not be loaded yet
+        if (window.speechSynthesis.getVoices().length === 0) {
+          window.speechSynthesis.onvoiceschanged = announce;
+        } else {
+          announce();
+        }
       }
     };
 
@@ -94,8 +109,9 @@ function MonitorContent() {
     if (latestCalled && latestCalled.id !== lastAnnouncedId.current) {
       const counter = counters.find(c => c.id === latestCalled.counterId || c.currentTicketId === latestCalled.id);
       if (counter) {
-        const digits = latestCalled.queueNumber.split('').join(' ');
-        speak(`Number ${digits}, Counter ${counter.counterNumber}.`);
+        // Prepare the queue number for natural speech (e.g. M-001 -> "M 0 0 1")
+        const spokenNumber = latestCalled.queueNumber.replace('-', ' ').split('').join(' ');
+        speak(`Ticket number ${spokenNumber}, please proceed to counter ${counter.counterNumber}`);
         lastAnnouncedId.current = latestCalled.id;
       }
     }
@@ -149,7 +165,7 @@ function MonitorContent() {
       </header>
 
       <div className="flex-1 grid grid-cols-12 gap-8 min-h-0">
-        {/* Column 1: Now Serving (Expanded) */}
+        {/* Column 1: Now Serving */}
         <div className="col-span-8 flex flex-col space-y-6">
           <h2 className="text-sm font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2 px-2">
             <Volume2 size={16} /> Now Serving
@@ -188,7 +204,7 @@ function MonitorContent() {
           </div>
         </div>
 
-        {/* Column 2: Upcoming Queue (Moved to the Right) */}
+        {/* Column 2: Upcoming Queue */}
         <div className="col-span-4 flex flex-col space-y-6">
           <h2 className="text-sm font-black text-secondary uppercase tracking-[0.3em] flex items-center gap-2 px-2">
             <Users size={16} /> Upcoming Queue
@@ -233,3 +249,4 @@ export default function MonitorPage() {
     </QueueProvider>
   );
 }
+
