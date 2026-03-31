@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -156,7 +155,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     
-    // Prefix logic: building.code + sequence
     const buildingTickets = tickets.filter(t => t.departmentId === currentDeptId);
     const num = (buildingTickets.length + 1).toString().padStart(3, '0');
     
@@ -232,7 +230,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await updateDoc(userRef, updates);
     setStaffCounterId(null);
 
-    // If setting up, ensure counter exists in Firestore
     if (deptId && serviceType && counterNumber) {
       const counterId = `${serviceType.toLowerCase()}-${counterNumber}`;
       const counterRef = doc(db, 'departments', deptId, 'counters', counterId);

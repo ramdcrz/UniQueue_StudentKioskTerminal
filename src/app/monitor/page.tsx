@@ -1,17 +1,19 @@
-
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Volume2, Play, Users, Clock, History } from 'lucide-react';
+import { Building2, Volume2, Play, Users, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 function MonitorContent() {
   const { tickets, counters, currentDepartment, departments, setCurrentDepartment } = useQueue();
+  const { toast } = useToast();
   const [time, setTime] = useState<Date | null>(null);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const lastAnnouncedId = useRef<string | null>(null);
+  const prevHistoryCount = useRef(0);
 
   useEffect(() => {
     setTime(new Date());
@@ -32,16 +34,44 @@ function MonitorContent() {
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && t.status === 'WAITING')
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      .slice(0, 8);
+      .slice(0, 12);
   }, [tickets, currentDepartment]);
 
-  // Column 3: Recent Calls (History)
+  // Recent History for Toast logic
   const history = useMemo(() => {
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'COMPLETED' || t.status === 'NOSHOW'))
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 10);
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [tickets, currentDepartment]);
+
+  // Handle Recent Activity Toasts
+  useEffect(() => {
+    if (history.length > prevHistoryCount.current) {
+      const latest = history[0];
+      if (latest) {
+        toast({
+          title: `Ticket ${latest.queueNumber}`,
+          description: (
+            <div className="flex items-center gap-2 font-bold">
+              {latest.status === 'COMPLETED' ? (
+                <>
+                  <CheckCircle2 className="text-success" size={16} />
+                  <span>Transaction Completed</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="text-destructive" size={16} />
+                  <span>Marked as No-Show</span>
+                </>
+              )}
+            </div>
+          ),
+          duration: 10000,
+        });
+      }
+    }
+    prevHistoryCount.current = history.length;
+  }, [history, toast]);
 
   // Browser Native TTS Announcement Logic
   useEffect(() => {
@@ -119,15 +149,15 @@ function MonitorContent() {
       </header>
 
       <div className="flex-1 grid grid-cols-12 gap-8 min-h-0">
-        {/* Column 1: Now Serving */}
-        <div className="col-span-5 flex flex-col space-y-6">
+        {/* Column 1: Now Serving (Expanded) */}
+        <div className="col-span-8 flex flex-col space-y-6">
           <h2 className="text-sm font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2 px-2">
             <Volume2 size={16} /> Now Serving
           </h2>
-          <div className="flex-1 grid grid-rows-2 gap-6">
+          <div className="flex-1 grid grid-cols-2 gap-6">
             <AnimatePresence mode="popLayout">
               {currentlyServing.length > 0 ? (
-                currentlyServing.slice(0, 2).map((ticket) => {
+                currentlyServing.map((ticket) => {
                   const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
                   return (
                     <motion.div
@@ -138,7 +168,7 @@ function MonitorContent() {
                       <span className="px-6 py-2 bg-primary/10 text-primary text-xs font-black rounded-full uppercase tracking-widest">
                         {ticket.serviceType}
                       </span>
-                      <div className="text-[9rem] leading-none font-black jet-mono text-secondary">
+                      <div className="text-[8rem] leading-none font-black jet-mono text-secondary">
                         {ticket.queueNumber}
                       </div>
                       <div className="text-4xl font-black text-success uppercase mt-4">
@@ -148,7 +178,7 @@ function MonitorContent() {
                   );
                 })
               ) : (
-                <div className="row-span-2 liquid-glass rounded-[3rem] flex items-center justify-center text-center p-12">
+                <div className="col-span-2 liquid-glass rounded-[3rem] flex items-center justify-center text-center p-12">
                   <p className="text-2xl font-bold text-muted-foreground opacity-30 uppercase tracking-widest leading-relaxed">
                     Awaiting next <br/> student call
                   </p>
@@ -158,7 +188,7 @@ function MonitorContent() {
           </div>
         </div>
 
-        {/* Column 2: Queue */}
+        {/* Column 2: Upcoming Queue (Moved to the Right) */}
         <div className="col-span-4 flex flex-col space-y-6">
           <h2 className="text-sm font-black text-secondary uppercase tracking-[0.3em] flex items-center gap-2 px-2">
             <Users size={16} /> Upcoming Queue
@@ -181,23 +211,7 @@ function MonitorContent() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Column 3: Recent Calls */}
-        <div className="col-span-3 flex flex-col space-y-6">
-          <h2 className="text-sm font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2 px-2">
-            <History size={16} /> Recent Activity
-          </h2>
-          <div className="flex-1 flex flex-col space-y-3">
-            {history.map((t) => (
-              <div key={t.id} className="bg-white/40 p-4 rounded-2xl flex justify-between items-center border border-white/40">
-                <div className="text-xl font-bold jet-mono text-secondary/60">{t.queueNumber}</div>
-                <div className={`text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${t.status === 'NOSHOW' ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'}`}>
-                  {t.status}
-                </div>
-              </div>
-            ))}
-          </div>
+          
           <div className="mt-auto pt-6 border-t flex flex-wrap gap-2">
             {departments.map(d => (
               <button key={d.id} onClick={() => setCurrentDepartment(d.id)}
