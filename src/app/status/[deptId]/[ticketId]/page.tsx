@@ -16,7 +16,8 @@ function StatusContent() {
   
   const ticket = tickets.find(t => t.id === ticketId);
   
-  if (isUserLoading || (tickets.length === 0 && !ticket)) {
+  // Only show loading if we don't have the ticket yet AND auth is still loading
+  if (!ticket && isUserLoading) {
     return (
       <div className="min-h-screen bg-[#F4F4F7] flex flex-col items-center justify-center p-6 space-y-4">
         <RefreshCw className="animate-spin text-primary" size={32} />
@@ -81,7 +82,7 @@ function StatusContent() {
 
           <div className="text-center py-12 bg-white/40 rounded-[3rem] border border-white/60 shadow-inner">
             <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2">Ticket Number</p>
-            <div className="text-[6rem] font-black jet-mono text-secondary leading-none">{ticket.queueNumber}</div>
+            <div className="text-[6rem] font-black jet-mono text-secondary leading-none whitespace-nowrap">{ticket.queueNumber}</div>
           </div>
 
           <AnimatePresence mode="wait">

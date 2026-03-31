@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from 'react';
@@ -52,7 +53,7 @@ function MonitorContent() {
         toast({
           title: `Ticket ${latest.queueNumber}`,
           description: (
-            <div className="flex items-center gap-2 font-bold">
+            <div className="flex items-center gap-2 font-bold whitespace-nowrap">
               {latest.status === 'COMPLETED' ? (
                 <>
                   <CheckCircle2 className="text-success" size={16} />
@@ -168,7 +169,7 @@ function MonitorContent() {
                       <span className="px-6 py-2 bg-primary/10 text-primary text-xs font-black rounded-full uppercase tracking-widest">
                         {ticket.serviceType}
                       </span>
-                      <div className="text-[8rem] leading-none font-black jet-mono text-secondary">
+                      <div className="text-[8rem] leading-none font-black jet-mono text-secondary whitespace-nowrap">
                         {ticket.queueNumber}
                       </div>
                       <div className="text-4xl font-black text-success uppercase mt-4">
@@ -199,7 +200,7 @@ function MonitorContent() {
                 key={t.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
                 className="bg-white p-5 rounded-3xl flex justify-between items-center shadow-sm border border-border/50"
               >
-                <div className="text-3xl font-black jet-mono text-secondary">{t.queueNumber}</div>
+                <div className="text-3xl font-black jet-mono text-secondary whitespace-nowrap">{t.queueNumber}</div>
                 <div className="text-[10px] font-black px-3 py-1.5 bg-muted rounded-xl text-muted-foreground uppercase tracking-widest">
                   {t.serviceType}
                 </div>

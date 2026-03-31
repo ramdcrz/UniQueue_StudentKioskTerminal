@@ -61,7 +61,7 @@ function KioskContent() {
         <Card className="liquid-glass p-8 rounded-[2.5rem] shadow-2xl">
           <div className="flex flex-col items-center text-center space-y-8">
             <div className="flex items-center space-x-3 text-primary">
-              <Building2 size={32} />
+              <Building2 size(32) />
               <h1 className="text-2xl font-extrabold tracking-tighter">UniQueue</h1>
             </div>
 
@@ -97,7 +97,7 @@ function KioskContent() {
                 <motion.div key="success" className="w-full flex flex-col items-center space-y-8">
                   <div className="text-center space-y-2">
                     <p className="text-sm font-black text-primary uppercase tracking-widest">Your Number</p>
-                    <div className="text-8xl font-black jet-mono text-secondary">{lastTicket?.queueNumber}</div>
+                    <div className="text-8xl font-black jet-mono text-secondary whitespace-nowrap">{lastTicket?.queueNumber}</div>
                   </div>
                   <div className="bg-white p-6 rounded-[2rem] border">
                     {statusUrl && <QRCodeSVG value={statusUrl} size={180} level="H" />}

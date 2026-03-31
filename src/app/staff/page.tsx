@@ -140,7 +140,7 @@ function StaffContent() {
     return (
       <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">
         <Card className="max-w-md w-full p-12 text-center space-y-6 rounded-[3rem] border-none shadow-2xl glass">
-          <div className="w-24 h-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto"><ShieldAlert size={48} /></div>
+          <div className="w-24 h-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto"><ShieldAlert size(48) /></div>
           <div className="space-y-2">
             <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Restricted</h1>
             <p className="text-muted-foreground font-medium leading-relaxed">Please authenticate with an authorized faculty or staff account to access the terminal control.</p>
@@ -175,7 +175,7 @@ function StaffContent() {
       <div className="max-w-6xl mx-auto space-y-8">
         <header className="flex justify-between items-center bg-white p-4 rounded-3xl shadow-sm border border-white/40 glass">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg"><User size={24} /></div>
+            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg"><User size(24) /></div>
             <div>
               <h1 className="font-black text-secondary uppercase">{user?.displayName || "Faculty Member"}</h1>
               <p className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-2">
@@ -187,13 +187,13 @@ function StaffContent() {
           <div className="flex items-center space-x-3">
             {isAdmin && (
               <Button variant="outline" onClick={() => setStaffAssignment(null, null)} className="rounded-xl border-2 font-bold gap-2 text-xs">
-                <Settings size={14} /> Re-configure
+                <Settings size(14) /> Re-configure
               </Button>
             )}
             <Badge variant="outline" className="px-4 py-1.5 rounded-full border-2 border-primary/20 text-primary font-black uppercase">
               {staffCounter?.status || 'VACANT'}
             </Badge>
-            <Link href="/"><Button variant="ghost" size="icon" className="rounded-2xl text-destructive hover:bg-destructive/10"><LogOut size={20} /></Button></Link>
+            <Link href="/"><Button variant="ghost" size="icon" className="rounded-2xl text-destructive hover:bg-destructive/10"><LogOut size(20) /></Button></Link>
           </div>
         </header>
 
@@ -204,21 +204,21 @@ function StaffContent() {
                 <>
                   <div className="space-y-2">
                     <p className="text-sm font-black text-primary uppercase tracking-[0.3em]">Currently Serving</p>
-                    <h2 className="text-[10rem] font-black jet-mono text-secondary leading-none">{currentTicket.queueNumber}</h2>
+                    <h2 className="text-[10rem] font-black jet-mono text-secondary leading-none whitespace-nowrap">{currentTicket.queueNumber}</h2>
                   </div>
                   <div className="w-full max-w-md grid grid-cols-2 gap-4">
                     <Button onClick={() => handleAction('complete')} className="h-24 text-lg font-black bg-success hover:bg-success/90 rounded-[2rem] shadow-xl flex flex-col pt-4">
-                      <CheckCircle size={32} className="mb-1" /> Finish
+                      <CheckCircle size(32) className="mb-1" /> Finish
                     </Button>
                     <Button onClick={() => handleAction('noshow')} variant="destructive" className="h-24 text-lg font-black rounded-[2rem] shadow-xl flex flex-col pt-4">
-                      <AlertCircle size={32} className="mb-1" /> No Show
+                      <AlertCircle size(32) className="mb-1" /> No Show
                     </Button>
                   </div>
                 </>
               ) : (
                 <div className="space-y-8">
                    <div className="w-32 h-32 bg-primary/5 rounded-full flex items-center justify-center mx-auto">
-                    <RefreshCw className={`text-primary/40 ${loading ? 'animate-spin' : ''}`} size={48} />
+                    <RefreshCw className={`text-primary/40 ${loading ? 'animate-spin' : ''}`} size(48) />
                    </div>
                    <div className="space-y-2">
                     <h2 className="text-3xl font-black text-secondary uppercase">Terminal Waiting</h2>
@@ -229,7 +229,7 @@ function StaffContent() {
                     onClick={() => handleAction('next')}
                     className="px-16 h-24 text-2xl font-black bg-success hover:bg-success/90 rounded-[2.5rem] shadow-2xl flex items-center gap-6 hover:scale-105 transition-all"
                    >
-                    <SkipForward size={40} /> CALL NEXT
+                    <SkipForward size(40) /> CALL NEXT
                    </Button>
                 </div>
               )}
@@ -258,7 +258,7 @@ function StaffContent() {
                         {tickets.filter(t => t.status === 'COMPLETED' && t.departmentId === staffAssignment.deptId && t.serviceType === staffAssignment.serviceType).length}
                       </p>
                     </div>
-                    <CheckCircle className="text-success/20" size={40} />
+                    <CheckCircle className="text-success/20" size(40) />
                   </div>
                   <div className="bg-white/50 p-6 rounded-3xl flex justify-between items-center">
                     <div>
@@ -267,14 +267,14 @@ function StaffContent() {
                         {tickets.filter(t => t.status === 'NOSHOW' && t.departmentId === staffAssignment.deptId && t.serviceType === staffAssignment.serviceType).length}
                       </p>
                     </div>
-                    <AlertCircle className="text-destructive/20" size={40} />
+                    <AlertCircle className="text-destructive/20" size(40) />
                   </div>
                 </div>
               </div>
             </Card>
 
             <div className="bg-secondary p-8 rounded-[3rem] text-white shadow-xl flex items-start gap-4">
-              <div className="p-3 bg-white/10 rounded-2xl"><Hash size={24} /></div>
+              <div className="p-3 bg-white/10 rounded-2xl"><Hash size(24) /></div>
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest mb-1">Terminal ID</h3>
                 <p className="text-sm font-bold opacity-70">

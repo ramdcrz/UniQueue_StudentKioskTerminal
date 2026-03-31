@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -111,15 +112,9 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [db, user, isAdmin, isStaff]);
 
+  // Public data subscriptions (independent of auth state for kiosk/status visibility)
   useEffect(() => {
-    if (!db || isUserLoading || !user) return;
-
-    if (isAdmin) {
-      const usersRef = collection(db, 'users');
-      onSnapshot(usersRef, (snapshot) => {
-        setAllUsers(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as AppUser)));
-      });
-    }
+    if (!db) return;
 
     const ticketUnsubs = departments.map(dept => {
       const ticketsRef = collection(db, 'departments', dept.id, 'tickets');
@@ -148,7 +143,20 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ticketUnsubs.forEach(u => u());
       counterUnsubs.forEach(u => u());
     };
-  }, [db, departments, isUserLoading, user, isAdmin]);
+  }, [db, departments]);
+
+  // Private data subscription (Admin only)
+  useEffect(() => {
+    if (!db || !isAdmin) {
+      setAllUsers([]);
+      return;
+    }
+
+    const usersRef = collection(db, 'users');
+    return onSnapshot(usersRef, (snapshot) => {
+      setAllUsers(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as AppUser)));
+    });
+  }, [db, isAdmin]);
 
   const createTicket = async (serviceType: ServiceType) => {
     if (!db || !currentDepartment) throw new Error("Database not ready");

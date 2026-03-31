@@ -33,7 +33,7 @@ function HomeContent() {
               <Smartphone size={64} />
             </div>
             <h1 className="text-5xl font-black tracking-tighter text-secondary uppercase">UniQueue</h1>
-            <p className="text-muted-foreground font-bold uppercase tracking-widest mt-2">Enrollment Season Kiosk</p>
+            <p className="text-muted-foreground font-bold uppercase tracking-widest mt-2">Student Kiosk Terminal</p>
           </motion.div>
           
           <Link href="/kiosk" className="w-full max-w-sm">
