@@ -32,7 +32,7 @@ interface QueueContextType {
   staffCounter: Counter | null;
   setStaffCounter: (counterId: string | null) => void;
   staffAssignment: { deptId: string | null; serviceType: ServiceType | null };
-  setStaffAssignment: (deptId: string | null, serviceType: ServiceType | null) => void;
+  setStaffAssignment: (deptId: string | null, serviceType: ServiceType | null, counterNumber?: number) => void;
   updateUserAssignment: (userId: string, deptId: string | null, serviceType: ServiceType | null) => void;
   isUserLoading: boolean;
   loginWithGoogle: () => void;
@@ -81,7 +81,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const staffAssignment = useMemo(() => ({
     deptId: currentUserProfile?.departmentId || null,
-    serviceType: currentUserProfile?.serviceType || null
+    serviceType: currentUserProfile?.serviceType || null,
+    counterNumber: (currentUserProfile as any)?.counterNumber || null
   }), [currentUserProfile]);
 
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
@@ -102,7 +103,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         const initialData = {
           id: user.uid,
-          name: user.displayName || user.email?.split('@')[0] || 'Unknown',
+          name: user.displayName || user.email?.split('@')[0] || 'Faculty Member',
           role: isAdmin ? 'SUPERADMIN' : (isStaff ? 'STAFF' : 'KIOSK'),
           email: user.email || ''
         };
@@ -155,6 +156,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     
+    // Prefix logic: building.code + sequence
     const buildingTickets = tickets.filter(t => t.departmentId === currentDeptId);
     const num = (buildingTickets.length + 1).toString().padStart(3, '0');
     
@@ -218,14 +220,34 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const setStaffAssignment = (deptId: string | null, serviceType: ServiceType | null) => {
+  const setStaffAssignment = async (deptId: string | null, serviceType: ServiceType | null, counterNumber?: number) => {
     if (!db || !user?.uid) return;
     const userRef = doc(db, 'users', user.uid);
-    updateDoc(userRef, { 
+    const updates: any = { 
       departmentId: deptId || null, 
-      serviceType: serviceType || null 
-    });
+      serviceType: serviceType || null,
+      counterNumber: counterNumber || null
+    };
+    
+    await updateDoc(userRef, updates);
     setStaffCounterId(null);
+
+    // If setting up, ensure counter exists in Firestore
+    if (deptId && serviceType && counterNumber) {
+      const counterId = `${serviceType.toLowerCase()}-${counterNumber}`;
+      const counterRef = doc(db, 'departments', deptId, 'counters', counterId);
+      
+      const counterSnap = await getDoc(counterRef);
+      if (!counterSnap.exists()) {
+        await setDoc(counterRef, {
+          id: counterId,
+          departmentId: deptId,
+          serviceType: serviceType,
+          counterNumber: counterNumber,
+          status: 'VACANT'
+        });
+      }
+    }
   };
 
   const updateUserAssignment = (userId: string, deptId: string | null, serviceType: ServiceType | null) => {
@@ -243,7 +265,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
   
-  const logout = () => auth && signOut(auth);
+  const logout = () => {
+    if (auth) signOut(auth);
+    window.location.href = '/';
+  };
 
   return (
     <QueueContext.Provider value={{ 
