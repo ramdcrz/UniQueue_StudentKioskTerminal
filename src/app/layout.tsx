@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'UniQueue - University Queueing System',
-  description: 'Efficient, real-time university queueing system for enrollment seasons.',
+  description: 'Efficient, real-time university queueing system for all departments.',
 };
 
 export default function RootLayout({

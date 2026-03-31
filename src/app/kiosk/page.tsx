@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -61,7 +60,7 @@ function KioskContent() {
         <Card className="liquid-glass p-8 rounded-[2.5rem] shadow-2xl">
           <div className="flex flex-col items-center text-center space-y-8">
             <div className="flex items-center space-x-3 text-primary">
-              <Building2 size(32) />
+              <Building2 size={32} />
               <h1 className="text-2xl font-extrabold tracking-tighter">UniQueue</h1>
             </div>
 
