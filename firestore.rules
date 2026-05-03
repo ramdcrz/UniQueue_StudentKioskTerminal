@@ -63,6 +63,25 @@ service cloud.firestore {
         request.resource.data.routingDepartment == get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.routingDepartment;
     }
 
+    function isValidCSATUpdate() {
+      let newCSAT = request.resource.data.get('csat', null);
+      let currentData = resource.data;
+      return (
+        // CSAT must be 'POSITIVE', 'NEGATIVE', or null
+        (newCSAT == 'POSITIVE' || newCSAT == 'NEGATIVE' || newCSAT == null) &&
+        // csatRecordedAt must be present if CSAT is being set, absent if CSAT is null
+        (newCSAT == null || request.resource.data.csatRecordedAt is timestamp)
+      );
+    }
+
+    function isCSATOnlyUpdate() {
+      // Check if only CSAT and csatRecordedAt are being updated
+      let updated = request.resource.data.keys();
+      let current = resource.data.keys();
+      let changedKeys = updated.difference(current).union(current.difference(updated));
+      return changedKeys.hasOnly(['csat', 'csatRecordedAt', 'updatedAt']);
+    }
+
     match /roles_superadmin/{userId} {
       allow get: if isSignedIn();
       allow list, write: if isSuperadmin();
@@ -89,8 +108,14 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && ticketWriteMatchesRoute();
       allow update: if isSignedIn() && (
-        request.resource.data.status in ['COMPLETED', 'NOSHOW', 'CANCELLED'] ||
-        (request.resource.data.status == 'CALLED' && ticketWriteMatchesRoute() && request.resource.data.counterId != null && calledTicketMatchesCounter())
+        // Status transitions (COMPLETED, NOSHOW, CANCELLED)
+        (request.resource.data.status in ['COMPLETED', 'NOSHOW', 'CANCELLED'] &&
+          ticketWriteMatchesRoute()) ||
+        // CALLED status with counter validation
+        (request.resource.data.status == 'CALLED' && ticketWriteMatchesRoute() && 
+          request.resource.data.counterId != null && calledTicketMatchesCounter()) ||
+        // CSAT updates for completed tickets (anyone can update, but only CSAT/csatRecordedAt)
+        (resource.data.status == 'COMPLETED' && isCSATOnlyUpdate() && isValidCSATUpdate())
       );
       allow delete: if isSuperadmin();
     }
