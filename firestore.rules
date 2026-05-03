@@ -20,6 +20,49 @@ service cloud.firestore {
       );
     }
 
+    function routeForService(serviceType) {
+      return serviceType == 'ACCOUNTING' ? 'ACCOUNTING_CASHIER' : 'REGISTRAR';
+    }
+
+    function routeForWindow(windowNumber) {
+      return windowNumber <= 8 ? 'REGISTRAR' : 'ACCOUNTING_CASHIER';
+    }
+
+    function counterWindow(counterData) {
+      return counterData.windowNumber != null ? counterData.windowNumber : counterData.counterNumber;
+    }
+
+    function isStrictRouteWindow(windowNumber) {
+      return windowNumber != null && windowNumber >= 1 && windowNumber <= 12;
+    }
+
+    function counterWriteMatchesRoute() {
+      let windowNumber = counterWindow(request.resource.data);
+      return isStrictRouteWindow(windowNumber) &&
+        request.resource.data.departmentId == departmentId &&
+        request.resource.data.assignedStaffId == request.auth.uid &&
+        request.resource.data.routingDepartment == routeForWindow(windowNumber) &&
+        request.resource.data.serviceType == (routeForWindow(windowNumber) == 'REGISTRAR' ? 'CASHIER' : 'ACCOUNTING');
+    }
+
+    function counterDoc(departmentId, counterId) {
+      return get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(counterId));
+    }
+
+    function ticketWriteMatchesRoute() {
+      return request.resource.data.departmentId == departmentId &&
+        request.resource.data.routingDepartment == routeForService(request.resource.data.serviceType);
+    }
+
+    function calledTicketMatchesCounter() {
+      return exists(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)) &&
+        get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.assignedStaffId == request.auth.uid &&
+        get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.departmentId == departmentId &&
+        isStrictRouteWindow(counterWindow(get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data)) &&
+        get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.routingDepartment == routeForWindow(counterWindow(get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data)) &&
+        request.resource.data.routingDepartment == get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.routingDepartment;
+    }
+
     match /roles_superadmin/{userId} {
       allow get: if isSignedIn();
       allow list, write: if isSuperadmin();
@@ -39,12 +82,17 @@ service cloud.firestore {
 
     match /departments/{departmentId}/counters/{counterId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSuperadmin() || (isSignedIn() && counterWriteMatchesRoute());
     }
 
     match /departments/{departmentId}/tickets/{ticketId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create: if isSignedIn() && ticketWriteMatchesRoute();
+      allow update: if isSignedIn() && (
+        request.resource.data.status in ['COMPLETED', 'NOSHOW', 'CANCELLED'] ||
+        (request.resource.data.status == 'CALLED' && ticketWriteMatchesRoute() && request.resource.data.counterId != null && calledTicketMatchesCounter())
+      );
+      allow delete: if isSuperadmin();
     }
   }
 }

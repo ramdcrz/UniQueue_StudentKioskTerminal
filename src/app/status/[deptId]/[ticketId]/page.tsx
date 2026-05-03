@@ -44,6 +44,7 @@ function StatusContent() {
 
   const department = departments.find(d => d.id === ticket.departmentId);
   const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
+  const windowNumber = counter?.windowNumber ?? counter?.counterNumber ?? '...';
   
   const waitingAhead = tickets.filter(t => 
     t.status === 'WAITING' && 
@@ -109,7 +110,7 @@ function StatusContent() {
               <motion.div key="called" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-success p-8 rounded-[2.5rem] text-white text-center shadow-xl space-y-3">
                 <UserCheck size={48} className="mx-auto" />
                 <h3 className="text-2xl font-black uppercase tracking-tight">IT'S YOUR TURN!</h3>
-                <p className="text-sm font-bold opacity-90 uppercase tracking-widest">Please proceed to Counter {counter?.counterNumber || '...'}</p>
+                <p className="text-sm font-bold opacity-90 uppercase tracking-widest">Please proceed to Counter {windowNumber}</p>
               </motion.div>
             )}
 
