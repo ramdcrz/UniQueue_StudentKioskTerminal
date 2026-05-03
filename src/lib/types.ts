@@ -40,6 +40,8 @@ export interface Ticket {
   serviceType: ServiceType;
   status: TicketStatus;
   departmentId: string;
+  studentName?: string;
+  purpose?: string;
   counterId?: string;
   createdAt: string;
   updatedAt: string;
