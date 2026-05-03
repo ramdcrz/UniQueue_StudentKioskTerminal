@@ -26,7 +26,7 @@ interface QueueContextType {
   allUsers: AppUser[];
   currentDepartment: Department | null;
   setCurrentDepartment: (deptId: string) => void;
-  createTicket: (serviceType: ServiceType) => Promise<Ticket>;
+  createTicket: (ticketData: { serviceType: ServiceType; studentName: string; purpose: string }) => Promise<Ticket>;
   callNextTicket: (counterId: string) => void;
   updateTicketStatus: (ticketId: string, status: TicketStatus, departmentId?: string) => void;
   staffCounter: Counter | null;
@@ -84,6 +84,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     serviceType: currentUserProfile?.serviceType || null,
     counterNumber: (currentUserProfile as any)?.counterNumber || null
   }), [currentUserProfile]);
+
+  const visibleUsers = isAdmin ? allUsers : [];
 
   const currentDepartment = departments.find(d => d.id === currentDeptId) || null;
   const staffCounter = counters.find(c => c.id === staffCounterId) || null;
@@ -148,7 +150,6 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Private data subscription (Admin only)
   useEffect(() => {
     if (!db || !isAdmin) {
-      setAllUsers([]);
       return;
     }
 
@@ -158,7 +159,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [db, isAdmin]);
 
-  const createTicket = async (serviceType: ServiceType) => {
+  const createTicket = async ({ serviceType, studentName, purpose }: { serviceType: ServiceType; studentName: string; purpose: string }) => {
     if (!db || !currentDepartment) throw new Error("Database not ready");
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
@@ -171,6 +172,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       serviceType,
       status: 'WAITING' as TicketStatus,
       departmentId: currentDeptId,
+      studentName,
+      purpose,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -277,7 +280,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <QueueContext.Provider value={{ 
-      departments, counters, tickets, allUsers, currentDepartment, 
+      departments, counters, tickets, allUsers: visibleUsers, currentDepartment, 
       setCurrentDepartment: setCurrentDeptId, createTicket, callNextTicket, updateTicketStatus,
       staffCounter, setStaffCounter: setStaffCounterId, staffAssignment, setStaffAssignment,
       updateUserAssignment, isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
