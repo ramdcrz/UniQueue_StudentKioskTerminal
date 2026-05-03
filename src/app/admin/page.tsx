@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { QueueOrchestratorChat } from '@/components/admin/queue-orchestrator-chat';
 
 function AdminContent() {
   const { tickets, departments, isAdmin, isUserLoading } = useQueue();
@@ -176,6 +177,7 @@ export default function AdminPage() {
   return (
     <QueueProvider>
       <AdminContent />
+      <QueueOrchestratorChat />
     </QueueProvider>
   );
 }
