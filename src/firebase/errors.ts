@@ -121,3 +121,12 @@ export class FirestorePermissionError extends Error {
     this.request = requestObject;
   }
 }
+
+export class QueueValidationError extends Error {
+  public readonly code = 'VALIDATION_ERROR' as const;
+
+  constructor(message: string, public readonly reason: 'STRIKE_LIMIT_EXCEEDED') {
+    super(message);
+    this.name = 'QueueValidationError';
+  }
+}

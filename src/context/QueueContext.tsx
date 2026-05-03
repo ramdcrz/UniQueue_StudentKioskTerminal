@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser } from '@/lib/types';
+import { endOfDay, startOfDay } from 'date-fns';
 import { 
   collection, 
   onSnapshot, 
@@ -11,13 +12,15 @@ import {
   updateDoc,
   query, 
   orderBy,
-  getDoc
+  getDoc,
+  getDocs,
+  where
 } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { initiateAnonymousSignIn, initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, QueueValidationError } from '@/firebase/errors';
 
 interface QueueContextType {
   departments: Department[];
@@ -61,6 +64,16 @@ const ADMIN_EMAILS = [
 const STAFF_EMAILS = [
   'nemostyles009@gmail.com'
 ];
+
+function getLocalDayWindow(now = new Date()) {
+  const start = startOfDay(now);
+  const end = endOfDay(now);
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+  };
+}
 
 export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const db = useFirestore();
@@ -161,6 +174,22 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const createTicket = async ({ serviceType, studentName, purpose }: { serviceType: ServiceType; studentName: string; purpose: string }) => {
     if (!db || !currentDepartment) throw new Error("Database not ready");
+
+    const normalizedStudentName = studentName.trim();
+    const { startIso, endIso } = getLocalDayWindow();
+    const strikeQuery = query(
+      collection(db, 'departments', currentDeptId, 'tickets'),
+      where('studentName', '==', normalizedStudentName),
+      where('status', 'in', ['NOSHOW', 'CANCELLED']),
+      where('createdAt', '>=', startIso),
+      where('createdAt', '<=', endIso),
+    );
+    const strikeSnapshot = await getDocs(strikeQuery);
+
+    if (strikeSnapshot.size >= 3) {
+      throw new QueueValidationError('Limit Exceeded: Please try again tomorrow', 'STRIKE_LIMIT_EXCEEDED');
+    }
+
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
     
@@ -172,7 +201,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       serviceType,
       status: 'WAITING' as TicketStatus,
       departmentId: currentDeptId,
-      studentName,
+      studentName: normalizedStudentName,
       purpose,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -194,13 +223,13 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ticketRef = doc(db, 'departments', deptId, 'tickets', ticketId);
     const updates: any = { status, updatedAt: new Date().toISOString() };
     if (status === 'CALLED') updates.calledAt = new Date().toISOString();
-    if (status === 'COMPLETED' || status === 'NOSHOW') updates.completedAt = new Date().toISOString();
+    if (status === 'COMPLETED' || status === 'NOSHOW' || status === 'CANCELLED') updates.completedAt = new Date().toISOString();
 
     updateDoc(ticketRef, updates).catch((err) => {
       console.error("Failed to update ticket", err);
     });
 
-    if (status === 'COMPLETED' || status === 'NOSHOW') {
+    if (status === 'COMPLETED' || status === 'NOSHOW' || status === 'CANCELLED') {
       const counter = counters.find(c => c.currentTicketId === ticketId);
       if (counter) {
         const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);

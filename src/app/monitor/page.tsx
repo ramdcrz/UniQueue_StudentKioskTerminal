@@ -41,7 +41,7 @@ function MonitorContent() {
   // Recent History for Toast logic
   const history = useMemo(() => {
     return tickets
-      .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'COMPLETED' || t.status === 'NOSHOW'))
+      .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'COMPLETED' || t.status === 'NOSHOW' || t.status === 'CANCELLED'))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [tickets, currentDepartment]);
 
@@ -59,10 +59,15 @@ function MonitorContent() {
                   <CheckCircle2 className="text-success" size={16} />
                   <span>Transaction Completed</span>
                 </>
-              ) : (
+              ) : latest.status === 'NOSHOW' ? (
                 <>
                   <AlertCircle className="text-destructive" size={16} />
                   <span>Marked as No-Show</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="text-destructive" size={16} />
+                  <span>Marked as Cancelled</span>
                 </>
               )}
             </div>

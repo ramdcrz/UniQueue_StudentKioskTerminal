@@ -3,7 +3,7 @@ export type Role = 'SUPERADMIN' | 'DEPTADMIN' | 'STAFF' | 'KIOSK' | 'MONITOR';
 
 export type ServiceType = 'CASHIER' | 'ACCOUNTING';
 
-export type TicketStatus = 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'NOSHOW';
+export type TicketStatus = 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'NOSHOW' | 'CANCELLED';
 
 export type CounterStatus = 'ONLINE' | 'OFFLINE' | 'SERVING' | 'VACANT';
 
