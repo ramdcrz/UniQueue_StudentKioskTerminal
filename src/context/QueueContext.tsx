@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser } from '@/lib/types';
+import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser, RoutingDepartment } from '@/lib/types';
 import { endOfDay, startOfDay } from 'date-fns';
 import { 
   collection, 
@@ -34,8 +34,8 @@ interface QueueContextType {
   updateTicketStatus: (ticketId: string, status: TicketStatus, departmentId?: string) => void;
   staffCounter: Counter | null;
   setStaffCounter: (counterId: string | null) => void;
-  staffAssignment: { deptId: string | null; serviceType: ServiceType | null };
-  setStaffAssignment: (deptId: string | null, serviceType: ServiceType | null, counterNumber?: number) => void;
+  staffAssignment: { deptId: string | null; serviceType: ServiceType | null; windowNumber: number | null; routingDepartment: RoutingDepartment | null };
+  setStaffAssignment: (deptId: string | null, serviceType: ServiceType | null, windowNumber?: number) => void;
   updateUserAssignment: (userId: string, deptId: string | null, serviceType: ServiceType | null) => void;
   isUserLoading: boolean;
   loginWithGoogle: () => void;
@@ -64,6 +64,29 @@ const ADMIN_EMAILS = [
 const STAFF_EMAILS = [
   'nemostyles009@gmail.com'
 ];
+
+const ROUTING_BY_SERVICE: Record<ServiceType, RoutingDepartment> = {
+  CASHIER: 'REGISTRAR',
+  ACCOUNTING: 'ACCOUNTING_CASHIER',
+};
+
+const SERVICE_BY_ROUTING: Record<RoutingDepartment, ServiceType> = {
+  REGISTRAR: 'CASHIER',
+  ACCOUNTING_CASHIER: 'ACCOUNTING',
+};
+
+function getRoutingDepartmentForWindow(windowNumber?: number | null) {
+  if (!windowNumber) return null;
+  return windowNumber <= 8 ? 'REGISTRAR' : 'ACCOUNTING_CASHIER';
+}
+
+function getCounterWindowNumber(counter: Counter) {
+  return counter.windowNumber ?? counter.counterNumber ?? null;
+}
+
+function getTicketRoutingDepartment(ticket: Ticket) {
+  return ticket.routingDepartment ?? ROUTING_BY_SERVICE[ticket.serviceType];
+}
 
 function getLocalDayWindow(now = new Date()) {
   const start = startOfDay(now);
@@ -95,7 +118,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const staffAssignment = useMemo(() => ({
     deptId: currentUserProfile?.departmentId || null,
     serviceType: currentUserProfile?.serviceType || null,
-    counterNumber: (currentUserProfile as any)?.counterNumber || null
+    windowNumber: (currentUserProfile as any)?.windowNumber ?? (currentUserProfile as any)?.counterNumber ?? null,
+    routingDepartment: (currentUserProfile as any)?.routingDepartment || ((currentUserProfile as any)?.serviceType ? ROUTING_BY_SERVICE[(currentUserProfile as any).serviceType as ServiceType] : null)
   }), [currentUserProfile]);
 
   const visibleUsers = isAdmin ? allUsers : [];
@@ -199,6 +223,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ticketData = {
       queueNumber: `${currentDepartment.code}-${num}`,
       serviceType,
+      routingDepartment: ROUTING_BY_SERVICE[serviceType],
       status: 'WAITING' as TicketStatus,
       departmentId: currentDeptId,
       studentName: normalizedStudentName,
@@ -242,36 +267,45 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!db) return;
     const counter = counters.find(c => c.id === counterId);
     if (!counter) return;
+    const windowNumber = getCounterWindowNumber(counter);
+    const routingDepartment = counter.routingDepartment ?? getRoutingDepartmentForWindow(windowNumber);
+    if (!routingDepartment) return;
+
+    const serviceType = SERVICE_BY_ROUTING[routingDepartment];
     
     const nextTicket = tickets.find(t => 
       t.status === 'WAITING' && 
       t.departmentId === counter.departmentId && 
-      t.serviceType === counter.serviceType
+      t.serviceType === serviceType &&
+      getTicketRoutingDepartment(t) === routingDepartment
     );
 
     if (nextTicket) {
       const ticketRef = doc(db, 'departments', counter.departmentId, 'tickets', nextTicket.id);
       const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
       
-      updateDoc(ticketRef, { status: 'CALLED', counterId: counter.id, calledAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-      updateDoc(counterRef, { status: 'SERVING', currentTicketId: nextTicket.id });
+      updateDoc(ticketRef, { status: 'CALLED', counterId: counter.id, routingDepartment, calledAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      updateDoc(counterRef, { status: 'SERVING', currentTicketId: nextTicket.id, routingDepartment, windowNumber, counterNumber: windowNumber, assignedStaffId: user?.uid || counter.assignedStaffId || null });
     }
   };
 
-  const setStaffAssignment = async (deptId: string | null, serviceType: ServiceType | null, counterNumber?: number) => {
+  const setStaffAssignment = async (deptId: string | null, serviceType: ServiceType | null, windowNumber?: number) => {
     if (!db || !user?.uid) return;
     const userRef = doc(db, 'users', user.uid);
+    const routingDepartment = serviceType ? ROUTING_BY_SERVICE[serviceType] : null;
     const updates: any = { 
       departmentId: deptId || null, 
       serviceType: serviceType || null,
-      counterNumber: counterNumber || null
+      windowNumber: windowNumber || null,
+      counterNumber: windowNumber || null,
+      routingDepartment
     };
     
     await updateDoc(userRef, updates);
     setStaffCounterId(null);
 
-    if (deptId && serviceType && counterNumber) {
-      const counterId = `${serviceType.toLowerCase()}-${counterNumber}`;
+    if (deptId && serviceType && windowNumber) {
+      const counterId = `${deptId}-${routingDepartment}-${windowNumber}-${user.uid}`;
       const counterRef = doc(db, 'departments', deptId, 'counters', counterId);
       
       const counterSnap = await getDoc(counterRef);
@@ -280,10 +314,26 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           id: counterId,
           departmentId: deptId,
           serviceType: serviceType,
-          counterNumber: counterNumber,
+          routingDepartment,
+          counterNumber: windowNumber,
+          windowNumber,
+          assignedStaffId: user.uid,
           status: 'VACANT'
-        });
+        }, { merge: true });
+      } else {
+        await setDoc(counterRef, {
+          id: counterId,
+          departmentId: deptId,
+          serviceType: serviceType,
+          routingDepartment,
+          counterNumber: windowNumber,
+          windowNumber,
+          assignedStaffId: user.uid,
+          status: counterSnap.data()?.status || 'VACANT',
+          currentTicketId: counterSnap.data()?.currentTicketId || null
+        }, { merge: true });
       }
+      setStaffCounterId(counterId);
     }
   };
 
@@ -292,7 +342,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const userRef = doc(db, 'users', userId);
     updateDoc(userRef, { 
       departmentId: deptId || null, 
-      serviceType: serviceType || null 
+      serviceType: serviceType || null,
+      windowNumber: null,
+      counterNumber: null,
+      routingDepartment: serviceType ? ROUTING_BY_SERVICE[serviceType] : null
     });
   };
 

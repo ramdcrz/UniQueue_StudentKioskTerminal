@@ -2,6 +2,7 @@
 export type Role = 'SUPERADMIN' | 'DEPTADMIN' | 'STAFF' | 'KIOSK' | 'MONITOR';
 
 export type ServiceType = 'CASHIER' | 'ACCOUNTING';
+export type RoutingDepartment = 'REGISTRAR' | 'ACCOUNTING_CASHIER';
 
 export type TicketStatus = 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'NOSHOW' | 'CANCELLED';
 
@@ -21,14 +22,18 @@ export interface User {
   role: Role;
   departmentId?: string;
   serviceType?: ServiceType;
+  windowNumber?: number;
+  routingDepartment?: RoutingDepartment;
   email?: string;
 }
 
 export interface Counter {
   id: string;
   departmentId: string;
-  counterNumber: number;
+  counterNumber?: number;
+  windowNumber?: number;
   serviceType: ServiceType;
+  routingDepartment?: RoutingDepartment;
   status: CounterStatus;
   assignedStaffId?: string;
   currentTicketId?: string | null;
@@ -38,6 +43,7 @@ export interface Ticket {
   id: string;
   queueNumber: string; // e.g., M-001, I-001
   serviceType: ServiceType;
+  routingDepartment?: RoutingDepartment;
   status: TicketStatus;
   departmentId: string;
   studentName?: string;

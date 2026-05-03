@@ -14,13 +14,24 @@ function StaffSetup() {
   const { departments, setStaffAssignment, staffAssignment } = useQueue();
   const [selectedDept, setSelectedDept] = useState<string | null>(staffAssignment.deptId);
   const [selectedService, setSelectedService] = useState<'CASHIER' | 'ACCOUNTING' | null>(staffAssignment.serviceType);
-  const [selectedCounter, setSelectedCounter] = useState<number>(1);
+  const [selectedWindow, setSelectedWindow] = useState<number>(staffAssignment.windowNumber || 1);
 
   const dept = departments.find(d => d.id === selectedDept);
 
+  useEffect(() => {
+    setSelectedService(selectedWindow <= 8 ? 'CASHIER' : 'ACCOUNTING');
+  }, [selectedWindow]);
+
+  useEffect(() => {
+    if (staffAssignment.windowNumber) {
+      setSelectedWindow(staffAssignment.windowNumber);
+    }
+  }, [staffAssignment.windowNumber]);
+
   const handleConfirm = () => {
-    if (selectedDept && selectedService) {
-      setStaffAssignment(selectedDept, selectedService, selectedCounter);
+    const derivedService = selectedWindow <= 8 ? 'CASHIER' : 'ACCOUNTING';
+    if (selectedDept) {
+      setStaffAssignment(selectedDept, derivedService, selectedWindow);
     }
   };
 
@@ -57,6 +68,7 @@ function StaffSetup() {
                   <Button 
                     variant={selectedService === 'CASHIER' ? 'default' : 'outline'}
                     onClick={() => setSelectedService('CASHIER')}
+                    disabled={selectedWindow > 8}
                     className="h-14 rounded-2xl font-bold"
                   >
                     Cashier
@@ -65,6 +77,7 @@ function StaffSetup() {
                     <Button 
                       variant={selectedService === 'ACCOUNTING' ? 'default' : 'outline'}
                       onClick={() => setSelectedService('ACCOUNTING')}
+                      disabled={selectedWindow <= 8}
                       className="h-14 rounded-2xl font-bold"
                     >
                       Accounting
@@ -74,18 +87,21 @@ function StaffSetup() {
               </div>
 
               <div className="space-y-3">
-                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Counter Number</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[1, 2, 3, 4, 5].map(num => (
+                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Physical Window</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
                     <Button 
-                      key={num} variant={selectedCounter === num ? 'secondary' : 'outline'}
-                      onClick={() => setSelectedCounter(num)}
+                      key={num} variant={selectedWindow === num ? 'secondary' : 'outline'}
+                      onClick={() => setSelectedWindow(num)}
                       className="h-12 rounded-xl font-black shadow-sm"
                     >
                       {num}
                     </Button>
                   ))}
                 </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                  {selectedWindow <= 8 ? 'Registrar Route' : 'Accounting/Cashier Route'}
+                </p>
               </div>
             </div>
           )}
@@ -125,13 +141,14 @@ function StaffContent() {
       const existing = counters.find(c => 
         c.departmentId === staffAssignment.deptId && 
         c.serviceType === staffAssignment.serviceType &&
-        c.counterNumber === (staffAssignment as any).counterNumber
+        (c.windowNumber ?? c.counterNumber) === staffAssignment.windowNumber &&
+        c.assignedStaffId === user?.uid
       );
       if (existing) {
         setStaffCounter(existing.id);
       }
     }
-  }, [counters, staffCounter, setStaffCounter, staffAssignment]);
+  }, [counters, staffCounter, setStaffCounter, staffAssignment, user?.uid]);
 
   if (isUserLoading) return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8 font-bold">Initializing terminal...</div>;
 
@@ -179,7 +196,7 @@ function StaffContent() {
               <h1 className="font-black text-secondary uppercase">{user?.displayName || "Faculty Member"}</h1>
               <p className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-2">
                 <span className="w-2 h-2 bg-success rounded-full" />
-                {staffAssignment.deptId?.toUpperCase()} • {staffAssignment.serviceType} Terminal • Counter {(staffAssignment as any).counterNumber || 1}
+                {staffAssignment.deptId?.toUpperCase()} • {staffAssignment.serviceType} Terminal • Window {staffAssignment.windowNumber || 1}
               </p>
             </div>
           </div>
@@ -279,7 +296,7 @@ function StaffContent() {
                 <p className="text-sm font-bold opacity-70">
                   BUILDING: {staffAssignment.deptId?.toUpperCase()}<br/>
                   OFFICE: {staffAssignment.serviceType}<br/>
-                  COUNTER: {(staffAssignment as any).counterNumber || 1}
+                    WINDOW: {staffAssignment.windowNumber || 1}
                 </p>
               </div>
             </div>

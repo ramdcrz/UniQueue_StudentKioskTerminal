@@ -114,9 +114,10 @@ function MonitorContent() {
     if (latestCalled && latestCalled.id !== lastAnnouncedId.current) {
       const counter = counters.find(c => c.id === latestCalled.counterId || c.currentTicketId === latestCalled.id);
       if (counter) {
+        const windowNumber = counter.windowNumber ?? counter.counterNumber ?? '??';
         // Prepare the queue number for natural speech (e.g. M-001 -> "M 0 0 1")
         const spokenNumber = latestCalled.queueNumber.replace('-', ' ').split('').join(' ');
-        speak(`Ticket number ${spokenNumber}, please proceed to counter ${counter.counterNumber}`);
+        speak(`Ticket number ${spokenNumber}, please proceed to counter ${windowNumber}`);
         lastAnnouncedId.current = latestCalled.id;
       }
     }
@@ -180,6 +181,7 @@ function MonitorContent() {
               {currentlyServing.length > 0 ? (
                 currentlyServing.map((ticket) => {
                   const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
+                  const windowNumber = counter?.windowNumber ?? counter?.counterNumber ?? '??';
                   return (
                     <motion.div
                       key={ticket.id}
@@ -193,7 +195,7 @@ function MonitorContent() {
                         {ticket.queueNumber}
                       </div>
                       <div className="text-4xl font-black text-success uppercase mt-4">
-                        Counter {counter?.counterNumber || '??'}
+                        Counter {windowNumber}
                       </div>
                     </motion.div>
                   );
