@@ -1,5 +1,5 @@
-import { openai } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { google } from '@ai-sdk/google';
+import { convertToModelMessages, streamText, type UIMessage } from 'ai';
 
 import { orchestratorTools } from '@/lib/ai/tools';
 
@@ -32,19 +32,27 @@ Communication style:
 
 interface OrchestratorRequestBody {
   prompt?: string;
-  messages?: Array<{
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-  }>;
+  messages?: UIMessage[];
 }
 
-function normalizeMessages(body: OrchestratorRequestBody) {
+async function normalizeMessages(body: OrchestratorRequestBody) {
   if (Array.isArray(body.messages) && body.messages.length > 0) {
-    return body.messages;
+    return convertToModelMessages(
+      body.messages.map(({ id, ...message }) => message),
+      { tools: orchestratorTools },
+    );
   }
 
   if (typeof body.prompt === 'string' && body.prompt.trim().length > 0) {
-    return [{ role: 'user', content: body.prompt.trim() }];
+    return convertToModelMessages(
+      [
+        {
+          role: 'user',
+          parts: [{ type: 'text', text: body.prompt.trim() }],
+        },
+      ],
+      { tools: orchestratorTools },
+    );
   }
 
   return [];
@@ -59,16 +67,16 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  const messages = normalizeMessages(body);
+  const messages = await normalizeMessages(body);
 
   if (messages.length === 0) {
     return Response.json({ error: 'Provide `prompt` or `messages`.' }, { status: 400 });
   }
 
   const result = streamText({
-    model: openai(process.env.OPENAI_MODEL ?? 'gpt-4o-mini'),
+    model: google(process.env.GEMINI_MODEL ?? 'gemini-2.5-flash'),
     system: ORCHESTRATOR_SYSTEM_PROMPT,
-    messages: messages as any,
+    messages,
     tools: orchestratorTools,
     temperature: 0.2,
   });
