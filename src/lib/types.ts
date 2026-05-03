@@ -39,6 +39,8 @@ export interface Counter {
   currentTicketId?: string | null;
 }
 
+export type CSATScore = 'POSITIVE' | 'NEGATIVE' | null;
+
 export interface Ticket {
   id: string;
   queueNumber: string; // e.g., M-001, I-001
@@ -54,4 +56,6 @@ export interface Ticket {
   calledAt?: string;
   servedAt?: string;
   completedAt?: string;
+  csat?: CSATScore;
+  csatRecordedAt?: string;
 }
