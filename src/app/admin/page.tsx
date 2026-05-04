@@ -57,23 +57,50 @@ function AdminContent() {
   );
 
   if (isUserLoading) {
-    return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8 font-bold">Loading system analytics...</div>;
+    return (
+      <div className="min-h-screen bg-[#F4F4F7] p-4 sm:p-6 lg:p-8" aria-busy="true">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+          {/* Header skeleton */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-64 rounded-xl" />
+              <Skeleton className="h-4 w-48 rounded-lg" />
+            </div>
+            <Skeleton className="h-10 w-40 rounded-xl" />
+          </div>
+          {/* Stats skeleton */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-36 rounded-[2rem]" />
+            ))}
+          </div>
+          {/* Chart skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+            <Skeleton className="lg:col-span-8 h-[350px] sm:h-[450px] rounded-[2.5rem]" />
+            <div className="lg:col-span-4 space-y-6">
+              <Skeleton className="h-60 rounded-[2.5rem]" />
+              <Skeleton className="h-32 rounded-[2.5rem]" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8">
-        <Card className="max-w-md w-full p-12 text-center space-y-6 rounded-[3rem] border-none shadow-2xl glass">
-          <div className="w-24 h-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
-            <ShieldAlert size={48} />
+      <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-4 sm:p-8">
+        <Card className="max-w-md w-full p-8 sm:p-12 text-center space-y-6 rounded-[2.5rem] sm:rounded-[3rem] border-none shadow-2xl glass">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+            <ShieldAlert size={40} className="sm:w-12 sm:h-12" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
-            <p className="text-muted-foreground font-medium">This dashboard is restricted to system administrators.</p>
+            <h1 className="text-xl sm:text-2xl font-black text-secondary uppercase tracking-tight">Access Denied</h1>
+            <p className="text-sm sm:text-base text-muted-foreground font-medium">This dashboard is restricted to system administrators.</p>
           </div>
-          <div className="pb-16 pt-6">
+          <div className="pb-10 sm:pb-16 pt-4 sm:pt-6">
             <Link href="/">
-              <Button className="w-full rounded-2xl h-14 bg-secondary font-bold">Back to Home</Button>
+              <Button className="w-full rounded-2xl h-12 sm:h-14 bg-secondary font-bold" aria-label="Go back to home page">Back to Home</Button>
             </Link>
           </div>
         </Card>
@@ -89,42 +116,44 @@ function AdminContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F4F4F7] p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="flex justify-between items-end">
+    <div className="min-h-screen bg-[#F4F4F7] p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl font-black text-secondary uppercase tracking-tight">University Analytics</h1>
-            <p className="text-muted-foreground font-semibold flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-secondary uppercase tracking-tight">University Analytics</h1>
+            <p className="text-sm sm:text-base text-muted-foreground font-semibold flex items-center gap-2">
               <Building size={16} /> Live Real-time Enrollment Overview
             </p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-3 sm:gap-4 flex-wrap">
             <Link href="/admin/assignments">
-              <Button variant="outline" className="rounded-xl border-2 font-bold gap-2">
+              <Button variant="outline" className="rounded-xl border-2 border-neutral-200 font-bold gap-2 text-xs sm:text-sm hover:border-[#2563EB] hover:text-[#2563EB] transition-all" aria-label="Manage staff assignments">
                 <UsersRound size={18} />
-                Manage Staff Assignments
+                <span className="hidden sm:inline">Manage Staff Assignments</span>
+                <span className="sm:hidden">Staff</span>
               </Button>
             </Link>
-            <div className="bg-white px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
-              <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-              Live Sync Active
+            <div className="bg-white px-3 sm:px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
+              <span className="w-2 h-2 bg-success rounded-full uq-pulse-dot" />
+              <span className="hidden sm:inline">Live Sync Active</span>
+              <span className="sm:hidden">Live</span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
           {stats.map((stat, i) => (
-            <Card key={i} className="border-none glass rounded-[2rem] shadow-sm hover:shadow-md transition-shadow group">
-              <CardContent className="p-6">
+            <Card key={i} className="border-none glass rounded-[1.5rem] sm:rounded-[2rem] shadow-sm hover:shadow-md transition-shadow group">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex justify-between items-start">
-                  <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
-                    <stat.icon size={24} />
+                  <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${stat.bg} ${stat.color}`}>
+                    <stat.icon size={20} className="sm:w-6 sm:h-6" />
                   </div>
-                  <TrendingUp size={20} className="text-muted-foreground opacity-20" />
+                  <TrendingUp size={16} className="text-muted-foreground opacity-20 sm:w-5 sm:h-5" />
                 </div>
-                <div className="mt-4">
-                  <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest">{stat.label}</h3>
-                  <p className="text-3xl font-black jet-mono text-secondary">{stat.value}</p>
+                <div className="mt-3 sm:mt-4">
+                  <h3 className="text-[10px] sm:text-sm font-black text-muted-foreground uppercase tracking-widest">{stat.label}</h3>
+                  <p className="text-2xl sm:text-3xl font-black jet-mono text-secondary">{stat.value}</p>
                 </div>
               </CardContent>
             </Card>
@@ -138,7 +167,8 @@ function AdminContent() {
               key={range}
               variant={selectedRange === range ? 'default' : 'outline'}
               onClick={() => setSelectedRange(range)}
-              className="rounded-xl font-bold"
+              className="rounded-xl font-bold text-xs sm:text-sm"
+              aria-label={`Show data for ${range === 'today' ? 'today' : `${range} days`}`}
             >
               {range === 'today' ? 'Today' : `${range} Days`}
             </Button>
@@ -148,14 +178,14 @@ function AdminContent() {
         {/* Advanced Analytics Section */}
         {isLoadingAnalytics ? (
           <div className="space-y-4">
-            <Skeleton className="h-80 rounded-[2.5rem]" />
+            <Skeleton className="h-60 sm:h-80 rounded-[2rem] sm:rounded-[2.5rem]" />
           </div>
         ) : analyticsData ? (
           <>
             {/* Transaction Time Analytics */}
             <div>
-              <h2 className="text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
-                <Zap size={20} /> Transaction Time Analytics
+              <h2 className="text-lg sm:text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
+                <Zap size={18} className="sm:w-5 sm:h-5" /> Transaction Time Analytics
               </h2>
               <BentoBox
                 items={[
@@ -163,7 +193,7 @@ function AdminContent() {
                     id: 'avg-time-dept',
                     span: 'md',
                     children: (
-                      <Card className="border-none glass rounded-[2.5rem] h-full">
+                      <Card className="border-none glass rounded-[2rem] sm:rounded-[2.5rem] h-full">
                         <CardHeader>
                           <CardTitle className="text-sm">By Department</CardTitle>
                         </CardHeader>
@@ -185,7 +215,7 @@ function AdminContent() {
                     id: 'avg-time-staff',
                     span: 'md',
                     children: (
-                      <Card className="border-none glass rounded-[2.5rem] h-full">
+                      <Card className="border-none glass rounded-[2rem] sm:rounded-[2.5rem] h-full">
                         <CardHeader>
                           <CardTitle className="text-sm">By Staff Member</CardTitle>
                         </CardHeader>
@@ -209,8 +239,8 @@ function AdminContent() {
 
             {/* Staff Efficiency Rating */}
             <div>
-              <h2 className="text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
-                <Activity size={20} /> Staff Efficiency Rating
+              <h2 className="text-lg sm:text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
+                <Activity size={18} className="sm:w-5 sm:h-5" /> Staff Efficiency Rating
               </h2>
               <StaffComparisonGrid
                 staffMetrics={analyticsData.efficiency}
@@ -221,11 +251,11 @@ function AdminContent() {
 
             {/* Cross-Validation Metric */}
             <div>
-              <h2 className="text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
-                <Percent size={20} /> Cross-Validation Metric
+              <h2 className="text-lg sm:text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
+                <Percent size={18} className="sm:w-5 sm:h-5" /> Cross-Validation Metric
               </h2>
-              <Card className="border-none glass rounded-[2.5rem] p-8">
-                <div className="grid grid-cols-3 gap-8">
+              <Card className="border-none glass rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
                   <MetricCard
                     title="Registrar Completions"
                     value={analyticsData.crossValidation.registrarCompletedCount}
@@ -251,32 +281,32 @@ function AdminContent() {
           </>
         ) : null}
 
-        <div className="grid grid-cols-12 gap-8">
-          <Card className="col-span-8 border-none liquid-glass rounded-[2.5rem] shadow-lg p-8">
-            <CardHeader className="p-0 mb-8">
-              <CardTitle className="text-xl font-black text-secondary uppercase">Hourly Distribution</CardTitle>
-              <p className="text-sm text-muted-foreground font-medium">Historical traffic trends for today</p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+          <Card className="lg:col-span-8 border-none liquid-glass rounded-[2rem] sm:rounded-[2.5rem] shadow-lg p-5 sm:p-8">
+            <CardHeader className="p-0 mb-6 sm:mb-8">
+              <CardTitle className="text-lg sm:text-xl font-black text-secondary uppercase">Hourly Distribution</CardTitle>
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">Historical traffic trends for today</p>
             </CardHeader>
-            <div className="h-[400px]">
+            <div className="h-[250px] sm:h-[350px] lg:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analytics.chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748B' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748B' }} />
+                  <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
                   <Tooltip 
-                    cursor={{ fill: 'rgba(24, 86, 255, 0.05)' }}
+                    cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontWeight: 800 }}
                   />
-                  <Bar dataKey="volume" fill="#1856FF" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="volume" fill="#2563EB" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </Card>
 
-          <div className="col-span-4 space-y-6">
-            <Card className="border-none glass rounded-[2.5rem] shadow-sm p-8">
-              <h3 className="text-lg font-black text-secondary uppercase mb-6">By Building</h3>
-              <div className="space-y-6">
+          <div className="lg:col-span-4 space-y-4 sm:space-y-6">
+            <Card className="border-none glass rounded-[2rem] sm:rounded-[2.5rem] shadow-sm p-5 sm:p-8">
+              <h3 className="text-base sm:text-lg font-black text-secondary uppercase mb-4 sm:mb-6">By Building</h3>
+              <div className="space-y-4 sm:space-y-6">
                 {departments.map((dept) => {
                   const deptTickets = tickets.filter(t => t.departmentId === dept.id).length;
                   const percentage = analytics.total > 0 ? (deptTickets / analytics.total) * 100 : 0;
@@ -287,7 +317,7 @@ function AdminContent() {
                         <span className="text-primary">{Math.round(percentage)}%</span>
                       </div>
                       <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
+                        <div className="h-full bg-primary transition-all duration-500" style={{ width: `${percentage}%` }} />
                       </div>
                     </div>
                   );
@@ -295,9 +325,9 @@ function AdminContent() {
               </div>
             </Card>
 
-            <Card className="border-none bg-secondary rounded-[2.5rem] shadow-xl p-8 text-white">
-              <h3 className="text-lg font-black uppercase mb-2">System Status</h3>
-              <p className="text-sm font-medium text-white/70">Database connectivity is operational. All departments are syncing correctly.</p>
+            <Card className="border-none bg-secondary rounded-[2rem] sm:rounded-[2.5rem] shadow-xl p-5 sm:p-8 text-white">
+              <h3 className="text-base sm:text-lg font-black uppercase mb-2">System Status</h3>
+              <p className="text-xs sm:text-sm font-medium text-white/70">Database connectivity is operational. All departments are syncing correctly.</p>
             </Card>
           </div>
         </div>
