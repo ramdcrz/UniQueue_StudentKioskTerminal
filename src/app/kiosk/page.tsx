@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Receipt, Building2, UserRound, BadgeInfo } from 'lucide-react';
+import { CreditCard, Receipt, Building2, UserRound, BadgeInfo, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Ticket } from '@/lib/types';
 import { QueueValidationError } from '@/firebase/errors';
@@ -57,6 +59,8 @@ const COLLEGE_OPTIONS = [
 
 function KioskContent() {
   const { currentDepartment, createTicket, departments, setCurrentDepartment } = useQueue();
+  const isMobile = useIsMobile();
+  const router = useRouter();
   const [step, setStep] = useState<'welcome' | 'service' | 'details' | 'success'>('welcome');
   const [lastTicket, setLastTicket] = useState<Ticket | null>(null);
   const [selectedService, setSelectedService] = useState<'CASHIER' | 'ACCOUNTING'>('CASHIER');
@@ -66,6 +70,19 @@ function KioskContent() {
   const [formError, setFormError] = useState('');
   const [countdown, setCountdown] = useState(15);
   const [limitExceededOpen, setLimitExceededOpen] = useState(false);
+  const [mobileInitDone, setMobileInitDone] = useState(false);
+
+  // Mobile: auto-advance past the welcome/idle screen
+  useEffect(() => {
+    if (isMobile && !mobileInitDone && currentDepartment) {
+      setMobileInitDone(true);
+      if (currentDepartment.hasAccounting) {
+        setStep('service');
+      } else {
+        setStep('details');
+      }
+    }
+  }, [isMobile, mobileInitDone, currentDepartment]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -96,6 +113,13 @@ function KioskContent() {
       setCountdown(15);
       const ticket = await createTicket({ serviceType: service, studentName: studentName.trim(), purpose, college });
       setLastTicket(ticket);
+
+      // Mobile: redirect straight to the live status page
+      if (isMobile) {
+        router.push(`/status/${ticket.departmentId}/${ticket.id}`);
+        return;
+      }
+
       setStep('success');
       setStudentName('');
       setPurpose('');
@@ -185,13 +209,15 @@ function KioskContent() {
           <Card className="liquid-glass p-8 rounded-[2.5rem] shadow-2xl">
             <div className="flex flex-col items-center text-center space-y-8">
               <div className="flex items-center space-x-3 text-primary">
-                <Building2 size={32} />
+                {isMobile ? <Smartphone size={32} /> : <Building2 size={32} />}
                 <h1 className="text-2xl font-extrabold tracking-tighter">UniQueue</h1>
               </div>
 
               <div className="space-y-1">
                 <h2 className="text-3xl font-bold text-secondary">{currentDepartment?.name}</h2>
-                <p className="text-muted-foreground font-medium">Please follow instructions</p>
+                <p className="text-muted-foreground font-medium">
+                  {isMobile ? 'Mobile Order-Ahead' : 'Please follow instructions'}
+                </p>
               </div>
 
               <AnimatePresence mode="wait">
@@ -288,24 +314,27 @@ function KioskContent() {
 
                     {formError && <p className="text-sm font-semibold text-destructive">{formError}</p>}
 
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setFormError('');
-                          if (currentDepartment?.hasAccounting) {
-                            setStep('service');
-                          } else {
-                            setStep('welcome');
-                          }
-                        }}
-                        className="h-14 rounded-2xl font-bold"
-                      >
-                        BACK
-                      </Button>
+                    <div className={`grid gap-3 pt-2 ${isMobile && !currentDepartment?.hasAccounting ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                      {/* On mobile without accounting, there's no previous step to go back to */}
+                      {!(isMobile && !currentDepartment?.hasAccounting) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setFormError('');
+                            if (currentDepartment?.hasAccounting) {
+                              setStep('service');
+                            } else {
+                              setStep('welcome');
+                            }
+                          }}
+                          className="h-14 rounded-2xl font-bold"
+                        >
+                          BACK
+                        </Button>
+                      )}
                       <Button type="submit" className="h-14 rounded-2xl bg-primary font-black">
-                        PRINT TICKET
+                        {isMobile ? 'GET TICKET' : 'PRINT TICKET'}
                       </Button>
                     </div>
                   </motion.form>
@@ -332,13 +361,16 @@ function KioskContent() {
             </div>
           </Card>
 
-          <div className="mt-8 flex justify-center gap-2">
-            {departments.map(d => (
-              <button key={d.id} onClick={() => { setCurrentDepartment(d.id); setStep('welcome'); }} className={`px-4 py-2 text-[10px] font-bold rounded-full border shadow-sm ${currentDepartment?.id === d.id ? 'bg-secondary text-white' : 'bg-white'}`}>
-                {d.acronym}
-              </button>
-            ))}
-          </div>
+          {/* Hide department switcher on mobile — mobile users are locked to the default department */}
+          {!isMobile && (
+            <div className="mt-8 flex justify-center gap-2">
+              {departments.map(d => (
+                <button key={d.id} onClick={() => { setCurrentDepartment(d.id); setStep('welcome'); }} className={`px-4 py-2 text-[10px] font-bold rounded-full border shadow-sm ${currentDepartment?.id === d.id ? 'bg-secondary text-white' : 'bg-white'}`}>
+                  {d.acronym}
+                </button>
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
     </>
