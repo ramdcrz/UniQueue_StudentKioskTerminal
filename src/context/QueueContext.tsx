@@ -66,18 +66,20 @@ const STAFF_EMAILS = [
 ];
 
 const ROUTING_BY_SERVICE: Record<ServiceType, RoutingDepartment> = {
-  CASHIER: 'REGISTRAR',
-  ACCOUNTING: 'ACCOUNTING_CASHIER',
+  CASHIER: 'CASHIER',
+  ACCOUNTING: 'ACCOUNTING',
 };
 
 const SERVICE_BY_ROUTING: Record<RoutingDepartment, ServiceType> = {
   REGISTRAR: 'CASHIER',
   ACCOUNTING_CASHIER: 'ACCOUNTING',
+  CASHIER: 'CASHIER',
+  ACCOUNTING: 'ACCOUNTING',
 };
 
 function getRoutingDepartmentForWindow(windowNumber?: number | null) {
   if (!windowNumber) return null;
-  return windowNumber <= 8 ? 'REGISTRAR' : 'ACCOUNTING_CASHIER';
+  return windowNumber <= 8 ? 'CASHIER' : 'ACCOUNTING';
 }
 
 function getCounterWindowNumber(counter: Counter) {
@@ -97,6 +99,28 @@ function getLocalDayWindow(now = new Date()) {
     endIso: end.toISOString(),
   };
 }
+
+export const WINDOW_COLLEGE_ROUTING: Record<number, string[] | 'ALL'> = {
+  9: ['IS', 'CBA', 'COA', 'SOIR'],
+  10: ['CON', 'CMT', 'COM', 'CPT', 'CRT'],
+  11: ['CAS', 'CEA', 'COE', 'CICS', 'CRIM', 'COC', 'COL', 'Music'],
+  12: 'ALL'
+};
+
+export function canWindowServeTicket(windowNumber: number | null, ticketCollege: string | undefined): boolean {
+  if (!windowNumber || windowNumber < 9 || windowNumber > 12) return true;
+  
+  const rules = WINDOW_COLLEGE_ROUTING[windowNumber];
+  if (!rules || rules === 'ALL') return true;
+  
+  if (!ticketCollege) return false;
+  
+  const match = ticketCollege.match(/\((.*?)\)/);
+  const acronym = match ? match[1] : ticketCollege;
+
+  return rules.includes(acronym);
+}
+
 
 export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const db = useFirestore();
@@ -278,7 +302,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       t.status === 'WAITING' && 
       t.departmentId === counter.departmentId && 
       t.serviceType === serviceType &&
-      getTicketRoutingDepartment(t) === routingDepartment
+      getTicketRoutingDepartment(t) === routingDepartment &&
+      canWindowServeTicket(windowNumber, t.college)
     );
 
     if (nextTicket) {

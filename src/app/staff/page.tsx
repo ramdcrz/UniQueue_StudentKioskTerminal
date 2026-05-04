@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
+import { canWindowServeTicket } from '@/context/QueueContext';
 
 function StaffSetup() {
   const { departments, setStaffAssignment, staffAssignment } = useQueue();
@@ -29,9 +30,8 @@ function StaffSetup() {
   }, [staffAssignment.windowNumber]);
 
   const handleConfirm = () => {
-    const derivedService = selectedWindow <= 8 ? 'CASHIER' : 'ACCOUNTING';
-    if (selectedDept) {
-      setStaffAssignment(selectedDept, derivedService, selectedWindow);
+    if (selectedDept && selectedService) {
+      setStaffAssignment(selectedDept, selectedService, selectedWindow);
     }
   };
 
@@ -100,7 +100,7 @@ function StaffSetup() {
                   ))}
                 </div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                  {selectedWindow <= 8 ? 'Registrar Route' : 'Accounting/Cashier Route'}
+                  {selectedWindow <= 8 ? 'Cashier Route' : 'Accounting Route'}
                 </p>
               </div>
             </div>
@@ -183,7 +183,10 @@ function StaffContent() {
   };
 
   const queueCount = tickets.filter(t => 
-    t.status === 'WAITING' && t.departmentId === staffAssignment.deptId && t.serviceType === staffAssignment.serviceType
+    t.status === 'WAITING' && 
+    t.departmentId === staffAssignment.deptId && 
+    t.serviceType === staffAssignment.serviceType &&
+    canWindowServeTicket(staffAssignment.windowNumber, t.college)
   ).length;
 
   return (
