@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Receipt, Building2, UserRound, BadgeInfo } from 'lucide-react';
+import { CreditCard, Receipt, Building2, UserRound, BadgeInfo, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
@@ -103,6 +105,13 @@ function KioskContent() {
       setCountdown(15);
       const ticket = await createTicket({ serviceType: service, studentName: studentName.trim(), purpose, college });
       setLastTicket(ticket);
+
+      // Mobile: redirect straight to the live status page
+      if (isMobile) {
+        router.push(`/status/${ticket.departmentId}/${ticket.id}`);
+        return;
+      }
+
       setStep('success');
       setStudentName('');
       setPurpose('');

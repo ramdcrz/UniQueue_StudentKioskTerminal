@@ -88,7 +88,8 @@ function StatusContent() {
       case 'WAITING': return { color: 'bg-warning/10 text-warning border-warning/20', icon: Clock, label: 'In Queue' };
       case 'CALLED':
       case 'SERVING': return { color: 'bg-success/10 text-success border-success/20 animate-pulse', icon: UserCheck, label: 'Currently Called' };
-      case 'COMPLETED': return { color: 'bg-primary/10 text-primary border-primary/20', icon: CheckCircle2, label: 'Success' };
+      case 'COMPLETED':
+      case 'Finish': return { color: 'bg-primary/10 text-primary border-primary/20', icon: CheckCircle2, label: 'Success' };
       case 'NOSHOW': return { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertCircle, label: 'Missed' };
       case 'CANCELLED': return { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertCircle, label: 'Cancelled' };
       default: return { color: 'bg-muted text-muted-foreground', icon: Clock, label: ticket.status };

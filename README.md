@@ -2,7 +2,7 @@
 
 UniQueue is a centralized queueing system for university enrollment designed for the Main Building, IS, SOM, and PSB. It replaces physical ticket printers with QR-based digital tickets and gives students, staff, and monitors a shared real-time view of the queue.
 
-Live system: https://studio--studio-2915700153-cc2ad.us-central1.hosted.app/
+Live system: https://uni-queue-student-kiosk-terminal.vercel.app/
 
 ![System Preview](./docs/preview.png)
 

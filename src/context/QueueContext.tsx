@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser, RoutingDepartment } from '@/lib/types';
+import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser, RoutingDepartment, CSATScore } from '@/lib/types';
 import { endOfDay, startOfDay } from 'date-fns';
 import { 
   collection, 
@@ -32,6 +32,7 @@ interface QueueContextType {
   createTicket: (ticketData: { serviceType: ServiceType; studentName: string; purpose: string; college?: string }) => Promise<Ticket>;
   callNextTicket: (counterId: string) => void;
   updateTicketStatus: (ticketId: string, status: TicketStatus, departmentId?: string) => void;
+  submitCsat: (ticketId: string, score: CSATScore, departmentId?: string) => void;
   staffCounter: Counter | null;
   setStaffCounter: (counterId: string | null) => void;
   staffAssignment: { deptId: string | null; serviceType: ServiceType | null; windowNumber: number | null; routingDepartment: RoutingDepartment | null };
@@ -273,19 +274,30 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ticketRef = doc(db, 'departments', deptId, 'tickets', ticketId);
     const updates: any = { status, updatedAt: new Date().toISOString() };
     if (status === 'CALLED') updates.calledAt = new Date().toISOString();
-    if (status === 'COMPLETED' || status === 'NOSHOW' || status === 'CANCELLED') updates.completedAt = new Date().toISOString();
+    if (status === 'COMPLETED' || status === 'Finish' || status === 'NOSHOW' || status === 'CANCELLED') updates.completedAt = new Date().toISOString();
 
     updateDoc(ticketRef, updates).catch((err) => {
       console.error("Failed to update ticket", err);
     });
 
-    if (status === 'COMPLETED' || status === 'NOSHOW' || status === 'CANCELLED') {
+    if (status === 'COMPLETED' || status === 'Finish' || status === 'NOSHOW' || status === 'CANCELLED') {
       const counter = counters.find(c => c.currentTicketId === ticketId);
       if (counter) {
         const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
         updateDoc(counterRef, { status: 'VACANT', currentTicketId: null });
       }
     }
+  };
+
+  const submitCsat = (ticketId: string, score: CSATScore, departmentId?: string) => {
+    if (!db) return;
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+    const deptId = departmentId || ticket.departmentId || currentDeptId;
+    const ticketRef = doc(db, 'departments', deptId, 'tickets', ticketId);
+    updateDoc(ticketRef, { csat: score, csatRecordedAt: new Date().toISOString() }).catch((err) => {
+      console.error("Failed to submit CSAT", err);
+    });
   };
 
   const callNextTicket = async (counterId: string) => {
@@ -394,6 +406,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <QueueContext.Provider value={{ 
       departments, counters, tickets, allUsers: visibleUsers, currentDepartment, 
       setCurrentDepartment: setCurrentDeptId, createTicket, callNextTicket, updateTicketStatus,
+      submitCsat,
       staffCounter, setStaffCounter: setStaffCounterId, staffAssignment, setStaffAssignment,
       updateUserAssignment, isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
     }}>
