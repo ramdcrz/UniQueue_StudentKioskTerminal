@@ -13,6 +13,8 @@ import { BentoBox } from '@/components/analytics/BentoBox';
 import { MetricCard } from '@/components/analytics/MetricCard';
 import { StaffComparisonGrid } from '@/components/analytics/StaffComparisonGrid';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { formatDuration } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
 
 function AdminContent() {
   const { tickets, departments, isAdmin, isUserLoading } = useQueue();
@@ -110,7 +112,7 @@ function AdminContent() {
 
   const stats = [
     { label: 'Total Tickets', value: analytics.total, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Wait Time (Avg)', value: `${analytics.avgWaitMins}m`, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
+    { label: 'Wait Time (Avg)', value: formatDuration(Number(analytics.avgWaitMins)), icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
     { label: 'Served', value: analytics.completed, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
     { label: 'Abandonment', value: analytics.noShow, icon: AlertTriangle, color: 'text-destructive', bg: 'bg-destructive/10' },
   ];
@@ -204,7 +206,7 @@ function AdminContent() {
                                 <p className="font-semibold text-sm">{dept.deptName}</p>
                                 <p className="text-xs text-muted-foreground">{dept.sampleCount} tickets</p>
                               </div>
-                              <p className="font-bold text-primary">{dept.avgTimeMinutes}m</p>
+                              <p className="font-bold text-primary">{formatDuration(dept.avgTimeMinutes)}</p>
                             </div>
                           ))}
                         </CardContent>
@@ -226,7 +228,7 @@ function AdminContent() {
                                 <p className="font-semibold text-sm">{staff.staffName}</p>
                                 <p className="text-xs text-muted-foreground">{staff.completedTickets} tickets</p>
                               </div>
-                              <p className="font-bold text-primary">{staff.avgTimeMinutes}m</p>
+                              <p className="font-bold text-primary">{formatDuration(staff.avgTimeMinutes)}</p>
                             </div>
                           ))}
                         </CardContent>
@@ -288,18 +290,27 @@ function AdminContent() {
               <p className="text-xs sm:text-sm text-muted-foreground font-medium">Historical traffic trends for today</p>
             </CardHeader>
             <div className="h-[250px] sm:h-[350px] lg:h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics.chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
-                  <Tooltip 
-                    cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontWeight: 800 }}
-                  />
-                  <Bar dataKey="volume" fill="#2563EB" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {analytics.total > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
+                    <Tooltip 
+                      cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontWeight: 800 }}
+                    />
+                    <Bar dataKey="volume" fill="#2563EB" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <EmptyState 
+                  icon="check"
+                  title="No traffic yet"
+                  description="Hourly distribution will appear here as students generate tickets today."
+                  className="h-full bg-transparent border-none shadow-none"
+                />
+              )}
             </div>
           </Card>
 

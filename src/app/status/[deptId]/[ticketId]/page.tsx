@@ -114,7 +114,7 @@ function StatusContent() {
 
   return (
     <div className="min-h-screen bg-[#F4F4F7] p-4 sm:p-6 flex flex-col items-center justify-center space-y-6">
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+      <motion.div layout initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <Card className="liquid-glass rounded-[2.5rem] sm:rounded-[3.5rem] p-6 sm:p-10 space-y-6 sm:space-y-8 shadow-2xl relative overflow-hidden border-white/50">
           <div className="flex justify-between items-start gap-3">
             <div className="min-w-0">
@@ -138,14 +138,28 @@ function StatusContent() {
                   <div className="bg-white/50 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/60 shadow-sm">
                     <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Ahead of You</p>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl sm:text-3xl font-black text-secondary">{waitingAhead}</span>
-                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Stus</span>
+                      <motion.span 
+                        key={waitingAhead}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-2xl sm:text-3xl font-black text-secondary"
+                      >
+                        {waitingAhead}
+                      </motion.span>
+                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Students</span>
                     </div>
                   </div>
                   <div className="bg-white/50 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/60 shadow-sm">
                     <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Est. Wait</p>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl sm:text-3xl font-black text-secondary">~{waitingAhead * 5}</span>
+                      <motion.span 
+                        key={waitingAhead * 5}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-2xl sm:text-3xl font-black text-secondary"
+                      >
+                        ~{waitingAhead * 5}
+                      </motion.span>
                       <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Mins</span>
                     </div>
                   </div>

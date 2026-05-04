@@ -8,11 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { motion } from 'framer-motion';
-import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings, Hash } from 'lucide-react';
+import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings, Hash, Coffee } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { canWindowServeTicket } from '@/context/QueueContext';
+import { EmptyState } from '@/components/ui/empty-state';
+import { AnimatePresence } from 'framer-motion';
 
 function StaffSetup() {
   const { departments, setStaffAssignment, staffAssignment } = useQueue();
@@ -262,40 +264,69 @@ function StaffContent() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
           <div className="lg:col-span-8 space-y-6 sm:space-y-8">
             <motion.div layout className="liquid-glass rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 flex flex-col items-center justify-center text-center space-y-6 sm:space-y-10 min-h-[350px] sm:min-h-[500px]">
-              {currentTicket && (currentTicket.status === 'CALLED' || currentTicket.status === 'SERVING') ? (
-                <>
-                  <div className="space-y-2">
-                    <p className="text-xs sm:text-sm font-black text-primary uppercase tracking-[0.3em]">Currently Serving</p>
-                    <h2 className="text-6xl sm:text-[8rem] lg:text-[10rem] font-black jet-mono text-secondary leading-none whitespace-nowrap" role="status" aria-live="polite">{currentTicket.queueNumber}</h2>
-                  </div>
-                  <div className="w-full max-w-md grid grid-cols-2 gap-3 sm:gap-4">
-                    <Button onClick={() => handleAction('complete')} disabled={loading} className="h-16 sm:h-24 text-base sm:text-lg font-black bg-success hover:bg-success/90 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as complete">
-                      {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <CheckCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} Finish
+              <AnimatePresence mode="wait">
+                {currentTicket && (currentTicket.status === 'CALLED' || currentTicket.status === 'SERVING') ? (
+                  <motion.div
+                    key="serving"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="w-full space-y-6 sm:space-y-10"
+                  >
+                    <div className="space-y-2">
+                      <p className="text-xs sm:text-sm font-black text-primary uppercase tracking-[0.3em]">Currently Serving</p>
+                      <h2 className="text-6xl sm:text-[8rem] lg:text-[10rem] font-black jet-mono text-secondary leading-none whitespace-nowrap" role="status" aria-live="polite">{currentTicket.queueNumber}</h2>
+                    </div>
+                    <div className="w-full max-w-md grid grid-cols-2 gap-3 sm:gap-4 mx-auto">
+                      <Button onClick={() => handleAction('complete')} disabled={loading} className="h-16 sm:h-24 text-base sm:text-lg font-black bg-success hover:bg-success/90 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as complete">
+                        {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <CheckCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} Finish
+                      </Button>
+                      <Button onClick={() => handleAction('noshow')} disabled={loading} variant="destructive" className="h-16 sm:h-24 text-base sm:text-lg font-black rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as no show">
+                        {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <AlertCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} No Show
+                      </Button>
+                    </div>
+                  </motion.div>
+                ) : queueCount === 0 ? (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="w-full"
+                  >
+                    <EmptyState 
+                      icon="coffee"
+                      title="You're all caught up!"
+                      description="No students currently in queue for your route. Take a quick break or wait for new arrivals."
+                      className="bg-transparent border-none shadow-none p-0"
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="waiting"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6 sm:space-y-8 w-full"
+                  >
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 bg-primary/5 rounded-full flex items-center justify-center mx-auto">
+                      <RefreshCw className={`text-primary/40 ${loading ? 'animate-spin' : ''}`} size={36} />
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl sm:text-3xl font-black text-secondary uppercase">Terminal Waiting</h2>
+                      <p className="text-sm sm:text-base text-muted-foreground font-medium">Click below to pull the next student</p>
+                    </div>
+                    <Button 
+                      disabled={queueCount === 0 || loading || !staffCounter}
+                      onClick={() => handleAction('next')}
+                      className="px-10 sm:px-16 h-16 sm:h-24 text-xl sm:text-2xl font-black bg-success hover:bg-success/90 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl flex items-center gap-4 sm:gap-6 hover:scale-105 transition-all mx-auto"
+                      aria-label={`Call next student. ${queueCount} students waiting.`}
+                    >
+                      {loading ? <LoadingSpinner size="md" className="[&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <SkipForward size={32} className="sm:w-10 sm:h-10" />} CALL NEXT
                     </Button>
-                    <Button onClick={() => handleAction('noshow')} disabled={loading} variant="destructive" className="h-16 sm:h-24 text-base sm:text-lg font-black rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as no show">
-                      {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <AlertCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} No Show
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-6 sm:space-y-8">
-                   <div className="w-24 h-24 sm:w-32 sm:h-32 bg-primary/5 rounded-full flex items-center justify-center mx-auto">
-                    <RefreshCw className={`text-primary/40 ${loading ? 'animate-spin' : ''}`} size={36} />
-                   </div>
-                   <div className="space-y-2">
-                    <h2 className="text-2xl sm:text-3xl font-black text-secondary uppercase">Terminal Waiting</h2>
-                    <p className="text-sm sm:text-base text-muted-foreground font-medium">Click below to pull the next student</p>
-                   </div>
-                   <Button 
-                    disabled={queueCount === 0 || loading || !staffCounter}
-                    onClick={() => handleAction('next')}
-                    className="px-10 sm:px-16 h-16 sm:h-24 text-xl sm:text-2xl font-black bg-success hover:bg-success/90 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl flex items-center gap-4 sm:gap-6 hover:scale-105 transition-all"
-                    aria-label={`Call next student. ${queueCount} students waiting.`}
-                   >
-                    {loading ? <LoadingSpinner size="md" className="[&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <SkipForward size={32} className="sm:w-10 sm:h-10" />} CALL NEXT
-                   </Button>
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </div>
 

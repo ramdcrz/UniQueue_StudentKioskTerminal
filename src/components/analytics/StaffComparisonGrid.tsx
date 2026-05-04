@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatDuration } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export interface StaffMetric {
   staffId: string;
@@ -89,16 +90,19 @@ export function StaffComparisonGrid({
   );
 
   return (
-    <Card className="border-none glass rounded-[2.5rem]">
+    <Card className={cn("border-none glass rounded-[2.5rem]", className)}>
       <CardHeader>
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
 
       <CardContent>
         {displayedMetrics.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            No staff data available
-          </div>
+          <EmptyState 
+            icon="coffee"
+            title="No performance data yet"
+            description="Staff metrics will appear here once transactions are completed today."
+            className="bg-transparent border-none shadow-none py-12"
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -166,7 +170,7 @@ export function StaffComparisonGrid({
                     {showMetrics.includes('avgTime') && (
                       <TableCell className="text-sm">
                         {staff.avgTransactionTimeMinutes !== undefined
-                          ? `${Number(staff.avgTransactionTimeMinutes).toFixed(1)}m`
+                          ? formatDuration(staff.avgTransactionTimeMinutes)
                           : '—'}
                       </TableCell>
                     )}
