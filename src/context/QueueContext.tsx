@@ -317,49 +317,53 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setStaffAssignment = async (deptId: string | null, serviceType: ServiceType | null, windowNumber?: number) => {
     if (!db || !user?.uid) return;
-    const userRef = doc(db, 'users', user.uid);
-    const routingDepartment = serviceType ? ROUTING_BY_SERVICE[serviceType] : null;
-    const updates: any = { 
-      departmentId: deptId || null, 
-      serviceType: serviceType || null,
-      windowNumber: windowNumber || null,
-      counterNumber: windowNumber || null,
-      routingDepartment
-    };
-    
-    await updateDoc(userRef, updates);
-    setStaffCounterId(null);
-
-    if (deptId && serviceType && windowNumber) {
-      const counterId = `${deptId}-${routingDepartment}-${windowNumber}-${user.uid}`;
-      const counterRef = doc(db, 'departments', deptId, 'counters', counterId);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const routingDepartment = serviceType ? ROUTING_BY_SERVICE[serviceType] : null;
+      const updates: any = { 
+        departmentId: deptId || null, 
+        serviceType: serviceType || null,
+        windowNumber: windowNumber || null,
+        counterNumber: windowNumber || null,
+        routingDepartment
+      };
       
-      const counterSnap = await getDoc(counterRef);
-      if (!counterSnap.exists()) {
-        await setDoc(counterRef, {
-          id: counterId,
-          departmentId: deptId,
-          serviceType: serviceType,
-          routingDepartment,
-          counterNumber: windowNumber,
-          windowNumber,
-          assignedStaffId: user.uid,
-          status: 'VACANT'
-        }, { merge: true });
-      } else {
-        await setDoc(counterRef, {
-          id: counterId,
-          departmentId: deptId,
-          serviceType: serviceType,
-          routingDepartment,
-          counterNumber: windowNumber,
-          windowNumber,
-          assignedStaffId: user.uid,
-          status: counterSnap.data()?.status || 'VACANT',
-          currentTicketId: counterSnap.data()?.currentTicketId || null
-        }, { merge: true });
+      await updateDoc(userRef, updates);
+      setStaffCounterId(null);
+
+      if (deptId && serviceType && windowNumber) {
+        const counterId = `${deptId}-${routingDepartment}-${windowNumber}-${user.uid}`;
+        const counterRef = doc(db, 'departments', deptId, 'counters', counterId);
+        
+        const counterSnap = await getDoc(counterRef);
+        if (!counterSnap.exists()) {
+          await setDoc(counterRef, {
+            id: counterId,
+            departmentId: deptId,
+            serviceType: serviceType,
+            routingDepartment,
+            counterNumber: windowNumber,
+            windowNumber,
+            assignedStaffId: user.uid,
+            status: 'VACANT'
+          }, { merge: true });
+        } else {
+          await setDoc(counterRef, {
+            id: counterId,
+            departmentId: deptId,
+            serviceType: serviceType,
+            routingDepartment,
+            counterNumber: windowNumber,
+            windowNumber,
+            assignedStaffId: user.uid,
+            status: counterSnap.data()?.status || 'VACANT',
+            currentTicketId: counterSnap.data()?.currentTicketId || null
+          }, { merge: true });
+        }
+        setStaffCounterId(counterId);
       }
-      setStaffCounterId(counterId);
+    } catch (error) {
+      console.error('Failed to set staff assignment', error);
     }
   };
 
