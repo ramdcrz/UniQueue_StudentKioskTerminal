@@ -28,8 +28,23 @@ import { QueueValidationError } from '@/firebase/errors';
 
 const PURPOSE_OPTIONS = [
   'Enrollment',
-  'Past Due',
-  'Completion Form Fee',
+  'Documents',
+  'Examination Fees',
+  'Clearance & Balances',
+  'Disbursement',
+  'Others'
+] as const;
+
+const COLLEGE_OPTIONS = [
+  'College of Architecture',
+  'College of Arts and Sciences',
+  'College of Business Administration',
+  'College of Computer Studies',
+  'College of Education',
+  'College of Engineering',
+  'College of Nursing',
+  'College of Law',
+  'Others'
 ] as const;
 
 function KioskContent() {
@@ -39,6 +54,7 @@ function KioskContent() {
   const [selectedService, setSelectedService] = useState<'CASHIER' | 'ACCOUNTING'>('CASHIER');
   const [studentName, setStudentName] = useState('');
   const [purpose, setPurpose] = useState('');
+  const [college, setCollege] = useState('');
   const [formError, setFormError] = useState('');
   const [countdown, setCountdown] = useState(15);
   const [limitExceededOpen, setLimitExceededOpen] = useState(false);
@@ -70,11 +86,12 @@ function KioskContent() {
   const handleGetQueue = async (service: 'CASHIER' | 'ACCOUNTING' = 'CASHIER') => {
     try {
       setCountdown(15);
-      const ticket = await createTicket({ serviceType: service, studentName: studentName.trim(), purpose });
+      const ticket = await createTicket({ serviceType: service, studentName: studentName.trim(), purpose, college });
       setLastTicket(ticket);
       setStep('success');
       setStudentName('');
       setPurpose('');
+      setCollege('');
       setFormError('');
     } catch (error) {
       if (error instanceof QueueValidationError) {
@@ -109,8 +126,8 @@ function KioskContent() {
 
     const trimmedName = studentName.trim();
 
-    if (!trimmedName || !purpose) {
-      setFormError('Please enter your name and choose a purpose.');
+    if (!trimmedName || !purpose || !college) {
+      setFormError('Please enter your name, choose a college, and a purpose.');
       return;
     }
 
@@ -216,6 +233,27 @@ function KioskContent() {
                           className="h-16 rounded-[1.5rem] border-2 pl-12 text-lg font-medium"
                           autoComplete="name"
                         />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.35em] text-muted-foreground" htmlFor="college">
+                        College
+                      </label>
+                      <div className="relative">
+                        <Building2 className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                        <Select value={college} onValueChange={setCollege}>
+                          <SelectTrigger id="college" className="h-16 rounded-[1.5rem] border-2 pl-12 text-lg font-medium">
+                            <SelectValue placeholder="Select a college" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COLLEGE_OPTIONS.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 

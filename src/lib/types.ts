@@ -50,6 +50,7 @@ export interface Ticket {
   departmentId: string;
   studentName?: string;
   purpose?: string;
+  college?: string;
   counterId?: string;
   createdAt: string;
   updatedAt: string;
