@@ -60,6 +60,8 @@ const COLLEGE_OPTIONS = [
 ] as const;
 
 function KioskContent() {
+  const router = useRouter();
+  const isMobile = useIsMobile();
   const { currentDepartment, createTicket, departments, setCurrentDepartment } = useQueue();
   const { toast } = useToast();
   const [step, setStep] = useState<'welcome' | 'service' | 'details' | 'success'>('welcome');
@@ -88,6 +90,12 @@ function KioskContent() {
     }
     return () => clearInterval(timer);
   }, [step]);
+
+  useEffect(() => {
+    if (isMobile && step === 'welcome' && currentDepartment) {
+      handleStart();
+    }
+  }, [isMobile, step, currentDepartment]);
 
   const resetToWelcome = () => {
     setStep('welcome');
@@ -293,6 +301,7 @@ function KioskContent() {
                           onChange={(event) => setStudentName(event.target.value)}
                           placeholder="Enter your full name"
                           // Notice the addition of md:text-xl lg:text-xl below to override Shadcn's defaults
+                          autoFocus
                           className="h-14 sm:h-16 rounded-[1.25rem] sm:rounded-[1.5rem] border-2 pl-12 text-lg sm:text-lg md:text-lg lg:text-lg font-bold placeholder:font-medium placeholder:text-muted-foreground/50"
                           autoComplete="name"
                           aria-required="true"
@@ -368,7 +377,7 @@ function KioskContent() {
                         {isSubmitting ? (
                           <span className="flex items-center gap-2">
                             <LoadingSpinner size="sm" className="[&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" />
-                            PRINTING…
+                            GENERATING…
                           </span>
                         ) : (
                           'PRINT TICKET'
