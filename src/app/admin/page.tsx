@@ -1,17 +1,22 @@
-
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound } from 'lucide-react';
+import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound, Zap, Activity, Percent } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { QueueOrchestratorChat } from '@/components/admin/queue-orchestrator-chat';
+import { BentoBox } from '@/components/analytics/BentoBox';
+import { MetricCard } from '@/components/analytics/MetricCard';
+import { StaffComparisonGrid } from '@/components/analytics/StaffComparisonGrid';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 function AdminContent() {
   const { tickets, departments, isAdmin, isUserLoading } = useQueue();
+  const [selectedRange, setSelectedRange] = useState<'today' | 7 | 30>('today');
 
   const analytics = useMemo(() => {
     const total = tickets.length;
@@ -42,6 +47,14 @@ function AdminContent() {
 
     return { total, completed, waiting, noShow, avgWaitMins, chartData };
   }, [tickets]);
+
+  // Use analytics hook for real data
+  const daysBack = selectedRange === 'today' ? 1 : (selectedRange as any);
+  const firstDepartmentId = departments.length > 0 ? departments[0].id : '';
+  const { data: analyticsData, isLoading: isLoadingAnalytics } = useAnalytics(
+    firstDepartmentId,
+    daysBack,
+  );
 
   if (isUserLoading) {
     return <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-8 font-bold">Loading system analytics...</div>;
@@ -117,6 +130,126 @@ function AdminContent() {
             </Card>
           ))}
         </div>
+
+        {/* Time Range Selector */}
+        <div className="flex gap-2">
+          {(['today', 7, 30] as const).map(range => (
+            <Button
+              key={range}
+              variant={selectedRange === range ? 'default' : 'outline'}
+              onClick={() => setSelectedRange(range)}
+              className="rounded-xl font-bold"
+            >
+              {range === 'today' ? 'Today' : `${range} Days`}
+            </Button>
+          ))}
+        </div>
+
+        {/* Advanced Analytics Section */}
+        {isLoadingAnalytics ? (
+          <div className="space-y-4">
+            <Skeleton className="h-80 rounded-[2.5rem]" />
+          </div>
+        ) : analyticsData ? (
+          <>
+            {/* Transaction Time Analytics */}
+            <div>
+              <h2 className="text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
+                <Zap size={20} /> Transaction Time Analytics
+              </h2>
+              <BentoBox
+                items={[
+                  {
+                    id: 'avg-time-dept',
+                    span: 'md',
+                    children: (
+                      <Card className="border-none glass rounded-[2.5rem] h-full">
+                        <CardHeader>
+                          <CardTitle className="text-sm">By Department</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {analyticsData.avgTransactionTime.byDept.map((dept: any) => (
+                            <div key={dept.departmentId} className="flex justify-between items-center pb-3 border-b last:border-0">
+                              <div>
+                                <p className="font-semibold text-sm">{dept.deptName}</p>
+                                <p className="text-xs text-muted-foreground">{dept.sampleCount} tickets</p>
+                              </div>
+                              <p className="font-bold text-primary">{dept.avgTimeMinutes}m</p>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ),
+                  },
+                  {
+                    id: 'avg-time-staff',
+                    span: 'md',
+                    children: (
+                      <Card className="border-none glass rounded-[2.5rem] h-full">
+                        <CardHeader>
+                          <CardTitle className="text-sm">By Staff Member</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {analyticsData.avgTransactionTime.byStaff.map((staff: any) => (
+                            <div key={staff.staffId} className="flex justify-between items-center pb-3 border-b last:border-0">
+                              <div>
+                                <p className="font-semibold text-sm">{staff.staffName}</p>
+                                <p className="text-xs text-muted-foreground">{staff.completedTickets} tickets</p>
+                              </div>
+                              <p className="font-bold text-primary">{staff.avgTimeMinutes}m</p>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ),
+                  },
+                ]}
+              />
+            </div>
+
+            {/* Staff Efficiency Rating */}
+            <div>
+              <h2 className="text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
+                <Activity size={20} /> Staff Efficiency Rating
+              </h2>
+              <StaffComparisonGrid
+                staffMetrics={analyticsData.efficiency}
+                showMetrics={['efficiency', 'avgTime', 'csat', 'tickets']}
+                maxRows={10}
+              />
+            </div>
+
+            {/* Cross-Validation Metric */}
+            <div>
+              <h2 className="text-xl font-black text-secondary uppercase mb-4 flex items-center gap-2">
+                <Percent size={20} /> Cross-Validation Metric
+              </h2>
+              <Card className="border-none glass rounded-[2.5rem] p-8">
+                <div className="grid grid-cols-3 gap-8">
+                  <MetricCard
+                    title="Registrar Completions"
+                    value={analyticsData.crossValidation.registrarCompletedCount}
+                    unit="tickets"
+                    icon={<CheckCircle2 size={24} />}
+                  />
+                  <MetricCard
+                    title="Successful Conversions"
+                    value={analyticsData.crossValidation.successfulConversions}
+                    unit="tickets"
+                    icon={<TrendingUp size={24} />}
+                  />
+                  <MetricCard
+                    title="Conversion Rate"
+                    value={analyticsData.crossValidation.conversionRate}
+                    unit="%"
+                    icon={<Percent size={24} />}
+                    isHighlighted
+                  />
+                </div>
+              </Card>
+            </div>
+          </>
+        ) : null}
 
         <div className="grid grid-cols-12 gap-8">
           <Card className="col-span-8 border-none liquid-glass rounded-[2.5rem] shadow-lg p-8">

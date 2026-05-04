@@ -44,6 +44,7 @@ function StatusContent() {
 
   const department = departments.find(d => d.id === ticket.departmentId);
   const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
+  const windowNumber = counter?.windowNumber ?? counter?.counterNumber ?? '...';
   
   const waitingAhead = tickets.filter(t => 
     t.status === 'WAITING' && 
@@ -59,6 +60,7 @@ function StatusContent() {
       case 'SERVING': return { color: 'bg-success/10 text-success border-success/20 animate-pulse', icon: UserCheck, label: 'Currently Called' };
       case 'COMPLETED': return { color: 'bg-primary/10 text-primary border-primary/20', icon: CheckCircle2, label: 'Success' };
       case 'NOSHOW': return { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertCircle, label: 'Missed' };
+      case 'CANCELLED': return { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertCircle, label: 'Cancelled' };
       default: return { color: 'bg-muted text-muted-foreground', icon: Clock, label: ticket.status };
     }
   };
@@ -108,7 +110,7 @@ function StatusContent() {
               <motion.div key="called" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-success p-8 rounded-[2.5rem] text-white text-center shadow-xl space-y-3">
                 <UserCheck size={48} className="mx-auto" />
                 <h3 className="text-2xl font-black uppercase tracking-tight">IT'S YOUR TURN!</h3>
-                <p className="text-sm font-bold opacity-90 uppercase tracking-widest">Please proceed to Counter {counter?.counterNumber || '...'}</p>
+                <p className="text-sm font-bold opacity-90 uppercase tracking-widest">Please proceed to Counter {windowNumber}</p>
               </motion.div>
             )}
 
@@ -120,11 +122,15 @@ function StatusContent() {
               </motion.div>
             )}
 
-            {ticket.status === 'NOSHOW' && (
+            {(ticket.status === 'NOSHOW' || ticket.status === 'CANCELLED') && (
               <motion.div key="noshow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-destructive/5 p-8 rounded-[2.5rem] text-center border-2 border-destructive/20 space-y-3">
                 <AlertCircle size={48} className="mx-auto text-destructive" />
-                <h3 className="text-xl font-black text-destructive uppercase tracking-tight">Ticket Expired</h3>
-                <p className="text-sm font-bold text-muted-foreground leading-relaxed">Sorry, please get a new queue number.</p>
+                <h3 className="text-xl font-black text-destructive uppercase tracking-tight">
+                  {ticket.status === 'NOSHOW' ? 'Ticket Expired' : 'Ticket Cancelled'}
+                </h3>
+                <p className="text-sm font-bold text-muted-foreground leading-relaxed">
+                  {ticket.status === 'NOSHOW' ? 'Sorry, please get a new queue number.' : 'Please get a new queue number if you still need assistance.'}
+                </p>
               </motion.div>
             )}
           </AnimatePresence>

@@ -20,6 +20,68 @@ service cloud.firestore {
       );
     }
 
+    function routeForService(serviceType) {
+      return serviceType == 'ACCOUNTING' ? 'ACCOUNTING_CASHIER' : 'REGISTRAR';
+    }
+
+    function routeForWindow(windowNumber) {
+      return windowNumber <= 8 ? 'REGISTRAR' : 'ACCOUNTING_CASHIER';
+    }
+
+    function counterWindow(counterData) {
+      return counterData.windowNumber != null ? counterData.windowNumber : counterData.counterNumber;
+    }
+
+    function isStrictRouteWindow(windowNumber) {
+      return windowNumber != null && windowNumber >= 1 && windowNumber <= 12;
+    }
+
+    function counterWriteMatchesRoute() {
+      let windowNumber = counterWindow(request.resource.data);
+      return isStrictRouteWindow(windowNumber) &&
+        request.resource.data.departmentId == departmentId &&
+        request.resource.data.assignedStaffId == request.auth.uid &&
+        request.resource.data.routingDepartment == routeForWindow(windowNumber) &&
+        request.resource.data.serviceType == (routeForWindow(windowNumber) == 'REGISTRAR' ? 'CASHIER' : 'ACCOUNTING');
+    }
+
+    function counterDoc(departmentId, counterId) {
+      return get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(counterId));
+    }
+
+    function ticketWriteMatchesRoute() {
+      return request.resource.data.departmentId == departmentId &&
+        request.resource.data.routingDepartment == routeForService(request.resource.data.serviceType);
+    }
+
+    function calledTicketMatchesCounter() {
+      return exists(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)) &&
+        get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.assignedStaffId == request.auth.uid &&
+        get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.departmentId == departmentId &&
+        isStrictRouteWindow(counterWindow(get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data)) &&
+        get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.routingDepartment == routeForWindow(counterWindow(get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data)) &&
+        request.resource.data.routingDepartment == get(/databases/$(database)/documents/departments/$(departmentId)/counters/$(request.resource.data.counterId)).data.routingDepartment;
+    }
+
+    function isValidCSATUpdate() {
+      let newCSAT = request.resource.data.get('csat', null);
+      let currentData = resource.data;
+      return (
+        // CSAT must be 'POSITIVE', 'NEGATIVE', or null
+        (newCSAT == 'POSITIVE' || newCSAT == 'NEGATIVE' || newCSAT == null) &&
+        // csatRecordedAt must be present if CSAT is being set, absent if CSAT is null
+        (newCSAT == null || request.resource.data.csatRecordedAt is timestamp)
+      );
+    }
+
+    function isCSATOnlyUpdate() {
+      // Check if only CSAT and csatRecordedAt are being updated
+      let updated = request.resource.data.keys();
+      let current = resource.data.keys();
+      let changedKeys = updated.difference(current).union(current.difference(updated));
+      return changedKeys.hasOnly(['csat', 'csatRecordedAt', 'updatedAt']);
+    }
+
     match /roles_superadmin/{userId} {
       allow get: if isSignedIn();
       allow list, write: if isSuperadmin();
@@ -39,12 +101,23 @@ service cloud.firestore {
 
     match /departments/{departmentId}/counters/{counterId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSuperadmin() || (isSignedIn() && counterWriteMatchesRoute());
     }
 
     match /departments/{departmentId}/tickets/{ticketId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create: if isSignedIn() && ticketWriteMatchesRoute();
+      allow update: if isSignedIn() && (
+        // Status transitions (COMPLETED, NOSHOW, CANCELLED)
+        (request.resource.data.status in ['COMPLETED', 'NOSHOW', 'CANCELLED'] &&
+          ticketWriteMatchesRoute()) ||
+        // CALLED status with counter validation
+        (request.resource.data.status == 'CALLED' && ticketWriteMatchesRoute() && 
+          request.resource.data.counterId != null && calledTicketMatchesCounter()) ||
+        // CSAT updates for completed tickets (anyone can update, but only CSAT/csatRecordedAt)
+        (resource.data.status == 'COMPLETED' && isCSATOnlyUpdate() && isValidCSATUpdate())
+      );
+      allow delete: if isSuperadmin();
     }
   }
 }
