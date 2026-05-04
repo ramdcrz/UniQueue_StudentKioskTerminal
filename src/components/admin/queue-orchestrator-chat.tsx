@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { AlertTriangle, Bot, ChevronDown, Maximize2, MessageSquareText, SendHorizonal, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, Bot, ChevronDown, Maximize2, MessageSquareText, SendHorizonal, Sparkles } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { useQueue } from '@/context/QueueContext';
 import { cn } from '@/lib/utils';
 
 type ChatMessage = ReturnType<typeof useChat>['messages'][number];
@@ -69,8 +70,8 @@ function ChatBubble({
   );
 }
 
-export function QueueOrchestratorChat() {
-  const [isOpen, setIsOpen] = useState(true);
+function QueueOrchestratorChatContent() {
+  const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState('');
 
   const { messages, sendMessage, status, error, clearError } = useChat({
@@ -119,49 +120,39 @@ export function QueueOrchestratorChat() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-      {!isOpen ? (
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="h-14 rounded-full bg-secondary px-5 font-bold shadow-2xl hover:bg-secondary/90"
-        >
-          <Bot className="mr-2 h-5 w-5" />
-          Open Orchestrator
-        </Button>
-      ) : (
-        <Card className="w-[min(92vw,26rem)] overflow-hidden border-white/40 bg-white/45 p-0 shadow-[0_24px_80px_rgba(10,20,40,0.22)] backdrop-blur-2xl">
-          <div className="flex items-start justify-between border-b border-white/40 px-5 py-4">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+      {isOpen ? (
+        <Card className="w-[min(92vw,22rem)] overflow-hidden border-white/40 bg-white/45 p-0 shadow-[0_24px_80px_rgba(10,20,40,0.22)] backdrop-blur-2xl">
+          <div className="flex items-start justify-between border-b border-white/40 px-4 py-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary text-white shadow-sm">
-                  <Sparkles className="h-5 w-5" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-secondary text-white shadow-sm">
+                  <Sparkles className="h-4 w-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-black uppercase tracking-[0.22em] text-secondary">Queue Orchestrator</h2>
-                  <p className="text-xs font-medium text-muted-foreground">Admin dashboard assistant</p>
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-secondary">Queue Orchestrator</h2>
+                  <p className="text-[10px] font-medium text-muted-foreground">Admin dashboard assistant</p>
                 </div>
               </div>
-              <p className="text-xs font-medium text-muted-foreground">{promptHelper}</p>
+              <p className="text-[10px] font-medium leading-4 text-muted-foreground">{promptHelper}</p>
             </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" onClick={() => setIsOpen(false)}>
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsOpen(false)}>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
           </div>
 
-          <div className="px-4 py-3">
-            <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">
-              <MessageSquareText className="h-3.5 w-3.5" />
+          <div className="px-3 py-2.5">
+            <div className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground">
+              <MessageSquareText className="h-3 w-3" />
               Quick prompts
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {QUICK_PROMPTS.map(prompt => (
                 <button
                   key={prompt}
                   type="button"
                   onClick={() => handleQuickPrompt(prompt)}
-                  className="rounded-full border border-white/70 bg-white/60 px-3 py-1.5 text-left text-[11px] font-bold text-secondary shadow-sm transition hover:bg-white"
+                  className="rounded-full border border-white/70 bg-white/60 px-2.5 py-1 text-left text-[10px] font-bold leading-4 text-secondary shadow-sm transition hover:bg-white"
                 >
                   {prompt}
                 </button>
@@ -169,28 +160,22 @@ export function QueueOrchestratorChat() {
             </div>
           </div>
 
-          <ScrollArea className="h-[24rem] px-4 pb-2">
-            <div className="space-y-3 pr-1">
-              {messages.length === 0 ? (
-                <div className="rounded-[1.5rem] border border-dashed border-secondary/15 bg-white/60 p-5 text-sm text-muted-foreground">
-                  Ask for queue state, wait-time trends, or counter efficiency. The assistant will query Firestore before answering.
-                </div>
-              ) : (
-                messages.map(message => <ChatBubble key={message.id} message={message} />)
-              )}
+          <ScrollArea className="h-[12rem] px-3 pb-2">
+            <div className="space-y-2.5 pr-1">
+              {messages.map(message => <ChatBubble key={message.id} message={message} />)}
 
               {status === 'streaming' ? (
                 <div className="flex justify-start">
-                  <div className="rounded-[1.5rem] border border-white/60 bg-white/70 px-4 py-3 text-sm text-muted-foreground shadow-sm">
+                  <div className="rounded-[1.25rem] border border-white/60 bg-white/70 px-3 py-2.5 text-xs text-muted-foreground shadow-sm">
                     Analyzing live queue data...
                   </div>
                 </div>
               ) : null}
 
               {status === 'error' && error ? (
-                <div className="rounded-[1.5rem] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                <div className="rounded-[1.25rem] border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                   <div className="mb-1 flex items-center gap-2 font-black uppercase tracking-[0.2em]">
-                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTriangle className="h-3.5 w-3.5" />
                     Orchestrator error
                   </div>
                   <p>{error.message}</p>
@@ -199,13 +184,13 @@ export function QueueOrchestratorChat() {
             </div>
           </ScrollArea>
 
-          <div className="border-t border-white/40 p-4">
-            <div className="space-y-3">
+          <div className="border-t border-white/40 p-3">
+            <div className="space-y-2.5">
               <Textarea
                 value={draft}
                 onChange={event => setDraft(event.target.value)}
                 placeholder="Ask the Queue Orchestrator..."
-                className="min-h-[88px] rounded-[1.25rem] border-white/60 bg-white/75 text-sm shadow-inner"
+                className="min-h-[60px] rounded-[1.1rem] border-white/60 bg-white/75 text-sm shadow-inner"
                 onKeyDown={event => {
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
@@ -214,20 +199,40 @@ export function QueueOrchestratorChat() {
                 }}
               />
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-medium text-muted-foreground">Press Enter to send, Shift+Enter for a new line.</p>
+                <p className="text-[10px] font-medium text-muted-foreground">Enter to send, Shift+Enter for a new line.</p>
                 <Button
                   onClick={() => void handleSubmit()}
                   disabled={!draft.trim() || isBusy}
-                  className="rounded-full bg-primary px-5 font-bold shadow-lg"
+                  className="rounded-full bg-primary px-4 text-xs font-bold shadow-lg"
                 >
-                  {isBusy ? <Maximize2 className="mr-2 h-4 w-4 animate-pulse" /> : <SendHorizonal className="mr-2 h-4 w-4" />}
+                  {isBusy ? <Maximize2 className="mr-2 h-3.5 w-3.5 animate-pulse" /> : <SendHorizonal className="mr-2 h-3.5 w-3.5" />}
                   Send
                 </Button>
               </div>
             </div>
           </div>
         </Card>
-      )}
+      ) : null}
+
+      <div className="relative flex items-center justify-end">
+        <Button
+          onClick={() => setIsOpen(prev => !prev)}
+          aria-label={isOpen ? 'Close orchestrator chat' : 'Open orchestrator chat'}
+          className="h-12 w-12 rounded-full bg-secondary p-0 font-bold shadow-2xl hover:bg-secondary/90"
+        >
+          {isOpen ? <ChevronDown className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+        </Button>
+      </div>
     </div>
   );
+}
+
+export function QueueOrchestratorChat() {
+  const { isAdmin, isUserLoading } = useQueue();
+
+  if (isUserLoading || !isAdmin) {
+    return null;
+  }
+
+  return <QueueOrchestratorChatContent />;
 }
