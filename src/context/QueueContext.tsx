@@ -26,7 +26,7 @@ interface QueueContextType {
   allUsers: AppUser[];
   currentDepartment: Department | null;
   setCurrentDepartment: (deptId: string) => void;
-  createTicket: (ticketData: { serviceType: ServiceType; studentName: string; purpose: string }) => Promise<Ticket>;
+  createTicket: (ticketData: { serviceType: ServiceType; studentName: string; purpose: string; college?: string }) => Promise<Ticket>;
   callNextTicket: (counterId: string) => void;
   updateTicketStatus: (ticketId: string, status: TicketStatus, departmentId?: string) => void;
   staffCounter: Counter | null;
@@ -159,7 +159,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [db, isAdmin]);
 
-  const createTicket = async ({ serviceType, studentName, purpose }: { serviceType: ServiceType; studentName: string; purpose: string }) => {
+  const createTicket = async ({ serviceType, studentName, purpose, college }: { serviceType: ServiceType; studentName: string; purpose: string; college?: string }) => {
     if (!db || !currentDepartment) throw new Error("Database not ready");
     const ticketsRef = collection(db, 'departments', currentDeptId, 'tickets');
     const newDocRef = doc(ticketsRef);
@@ -174,6 +174,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       departmentId: currentDeptId,
       studentName,
       purpose,
+      college,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
