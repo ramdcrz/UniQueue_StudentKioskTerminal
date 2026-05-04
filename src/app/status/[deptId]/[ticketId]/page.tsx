@@ -7,11 +7,11 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, UserCheck, RefreshCw, Home, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Clock, UserCheck, RefreshCw, Home, CheckCircle2, AlertCircle, Smile, Frown } from 'lucide-react';
 
 function StatusContent() {
   const { deptId, ticketId } = useParams();
-  const { tickets, counters, departments, isUserLoading } = useQueue();
+  const { tickets, counters, departments, isUserLoading, submitCsat } = useQueue();
   
   const ticket = tickets.find(t => t.id === ticketId);
   
@@ -58,7 +58,8 @@ function StatusContent() {
       case 'WAITING': return { color: 'bg-warning/10 text-warning border-warning/20', icon: Clock, label: 'In Queue' };
       case 'CALLED':
       case 'SERVING': return { color: 'bg-success/10 text-success border-success/20 animate-pulse', icon: UserCheck, label: 'Currently Called' };
-      case 'COMPLETED': return { color: 'bg-primary/10 text-primary border-primary/20', icon: CheckCircle2, label: 'Success' };
+      case 'COMPLETED':
+      case 'Finish': return { color: 'bg-primary/10 text-primary border-primary/20', icon: CheckCircle2, label: 'Success' };
       case 'NOSHOW': return { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertCircle, label: 'Missed' };
       case 'CANCELLED': return { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertCircle, label: 'Cancelled' };
       default: return { color: 'bg-muted text-muted-foreground', icon: Clock, label: ticket.status };
@@ -114,11 +115,28 @@ function StatusContent() {
               </motion.div>
             )}
 
-            {ticket.status === 'COMPLETED' && (
+            {(ticket.status === 'COMPLETED' || ticket.status === 'Finish') && !ticket.csat && (
+              <motion.div key="feedback" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/50 p-8 rounded-[2.5rem] text-center border-2 border-white/60 space-y-6 shadow-sm">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black text-secondary uppercase tracking-tight">How was your experience?</h3>
+                  <p className="text-sm font-bold text-muted-foreground">Please rate our service today.</p>
+                </div>
+                <div className="flex justify-center gap-6">
+                  <Button onClick={() => submitCsat(ticket.id, 'POSITIVE')} variant="outline" className="h-20 w-20 rounded-3xl border-2 hover:bg-success/10 hover:text-success hover:border-success/30 transition-all flex flex-col gap-2 shadow-sm">
+                    <Smile size={32} />
+                  </Button>
+                  <Button onClick={() => submitCsat(ticket.id, 'NEGATIVE')} variant="outline" className="h-20 w-20 rounded-3xl border-2 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all flex flex-col gap-2 shadow-sm">
+                    <Frown size={32} />
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {(ticket.status === 'COMPLETED' || ticket.status === 'Finish') && ticket.csat && (
               <motion.div key="completed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-primary/5 p-8 rounded-[2.5rem] text-center border-2 border-primary/20 space-y-3">
                 <CheckCircle2 size={48} className="mx-auto text-primary" />
                 <h3 className="text-xl font-black text-secondary uppercase">Success!</h3>
-                <p className="text-sm font-bold text-muted-foreground leading-relaxed">Thank you! See you on your next transaction.</p>
+                <p className="text-sm font-bold text-muted-foreground leading-relaxed">Thank you for your feedback! See you on your next transaction.</p>
               </motion.div>
             )}
 

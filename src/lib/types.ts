@@ -4,7 +4,7 @@ export type Role = 'SUPERADMIN' | 'DEPTADMIN' | 'STAFF' | 'KIOSK' | 'MONITOR';
 export type ServiceType = 'CASHIER' | 'ACCOUNTING';
 export type RoutingDepartment = 'REGISTRAR' | 'ACCOUNTING_CASHIER' | 'CASHIER' | 'ACCOUNTING';
 
-export type TicketStatus = 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'NOSHOW' | 'CANCELLED';
+export type TicketStatus = 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'Finish' | 'NOSHOW' | 'CANCELLED';
 
 export type CounterStatus = 'ONLINE' | 'OFFLINE' | 'SERVING' | 'VACANT';
 

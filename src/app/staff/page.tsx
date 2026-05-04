@@ -177,7 +177,7 @@ function StaffContent() {
     if (!staffCounter) return;
     setLoading(true);
     if (action === 'next') await callNextTicket(staffCounter.id);
-    else if (action === 'complete' && currentTicket) updateTicketStatus(currentTicket.id, 'COMPLETED');
+    else if (action === 'complete' && currentTicket) updateTicketStatus(currentTicket.id, 'Finish');
     else if (action === 'noshow' && currentTicket) updateTicketStatus(currentTicket.id, 'NOSHOW');
     setTimeout(() => setLoading(false), 500);
   };
