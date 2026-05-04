@@ -153,7 +153,16 @@ function StatusContent() {
             )}
           </AnimatePresence>
           
-          <div className="pt-6">
+          <div className="pt-6 space-y-3">
+            {ticket.status === 'WAITING' && (
+              <Button 
+                variant="outline"
+                onClick={() => updateTicketStatus(ticket.id, 'CANCELLED', ticket.departmentId)}
+                className="w-full h-16 rounded-3xl border-2 border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive/10 font-black gap-3 shadow-sm"
+              >
+                <AlertCircle size={20} /> CANCEL TICKET
+              </Button>
+            )}
             <Link href="/" className="block">
               <Button variant="outline" className="w-full h-16 rounded-3xl border-2 font-black text-muted-foreground gap-3 shadow-sm hover:bg-white">
                 <Home size={20} /> BACK TO HOME
