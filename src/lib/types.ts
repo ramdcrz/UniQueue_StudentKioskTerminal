@@ -2,7 +2,7 @@
 export type Role = 'SUPERADMIN' | 'DEPTADMIN' | 'STAFF' | 'KIOSK' | 'MONITOR';
 
 export type ServiceType = 'CASHIER' | 'ACCOUNTING';
-export type RoutingDepartment = 'REGISTRAR' | 'ACCOUNTING_CASHIER';
+export type RoutingDepartment = 'REGISTRAR' | 'ACCOUNTING_CASHIER' | 'CASHIER' | 'ACCOUNTING';
 
 export type TicketStatus = 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'NOSHOW' | 'CANCELLED';
 

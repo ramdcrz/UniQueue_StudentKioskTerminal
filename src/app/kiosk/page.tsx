@@ -36,15 +36,23 @@ const PURPOSE_OPTIONS = [
 ] as const;
 
 const COLLEGE_OPTIONS = [
-  'College of Architecture',
-  'College of Arts and Sciences',
-  'College of Business Administration',
-  'College of Computer Studies',
-  'College of Education',
-  'College of Engineering',
-  'College of Nursing',
-  'College of Law',
-  'Others'
+  'College of Arts and Sciences (CAS)',
+  'College of Business Administration (CBA)',
+  'College of Criminology (CRIM)',
+  'College of Engineering & Architecture (CEA)',
+  'College of Education (COE)',
+  'College of Informatics & Computing Studies (CICS)',
+  'College of Midwifery (COM)',
+  'College of Physical Therapy (CPT)',
+  'College of Respiratory Therapy (CRT)',
+  'College of Accountancy (COA)',
+  'College of Communication (COC)',
+  'College of Law (COL)',
+  'College of Music (Music)',
+  'College of Nursing (CON)',
+  'College of Medical Technology (CMT)',
+  'School of International Relations (SOIR)',
+  'Integrated School (IS)'
 ] as const;
 
 function KioskContent() {
@@ -136,7 +144,7 @@ function KioskContent() {
   };
 
   const statusUrl = typeof window !== 'undefined' && lastTicket?.id
-    ? `${window.location.origin}/status/${lastTicket.departmentId}/${lastTicket.id}` 
+    ? `${window.location.origin}/status/${lastTicket.departmentId}/${lastTicket.id}`
     : '';
 
   return (
