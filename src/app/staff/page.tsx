@@ -182,19 +182,29 @@ function StaffContent() {
         .filter(service => service !== currentTicket?.serviceType)
     : [];
   
-  const windowTransferTargets = canTransferCurrent && staffAssignment.deptId
-    ? counters
-        .filter(c => 
-          c.departmentId === staffAssignment.deptId && 
-          c.serviceType === currentTicket?.serviceType &&
-          c.id !== staffCounter?.id &&
-          c.status !== 'OFFLINE'
-        )
-        .map(c => ({
-          id: c.id,
-          label: `${c.serviceType} Window ${c.windowNumber ?? c.counterNumber ?? '?'}`,
-        }))
-    : [];
+  const windowTransferTargets = (() => {
+    if (!canTransferCurrent || !staffAssignment.deptId) return [] as { id: string; label: string }[];
+
+    const seen = new Set<string | number>();
+    const targets: { id: string; label: string }[] = [];
+
+    for (const c of counters) {
+      if (c.departmentId !== staffAssignment.deptId) continue;
+      if (c.id === staffCounter?.id) continue;
+      if (c.status === 'OFFLINE') continue;
+      // Only include counters that can serve the ticket's service type
+      if (currentTicket && c.serviceType !== currentTicket.serviceType) continue;
+
+      const wn = c.windowNumber ?? c.counterNumber ?? null;
+      if (wn == null) continue; // skip unlabeled counters to avoid duplicates like "?"
+      if (seen.has(wn)) continue; // dedupe by window number within the same department
+      seen.add(wn);
+
+      targets.push({ id: c.id, label: `${c.serviceType} Window ${wn}` });
+    }
+
+    return targets;
+  })();
 
   const queueCount = tickets.filter(t => 
     t.status === 'WAITING' && 
@@ -418,7 +428,7 @@ function StaffContent() {
                   >
                     <div className="space-y-2">
                       <p className="text-xs sm:text-sm font-black text-primary uppercase tracking-[0.3em]">Currently Serving</p>
-                      <h2 className="text-6xl sm:text-[8rem] lg:text-[10rem] font-black jet-mono text-secondary leading-none whitespace-nowrap" role="status" aria-live="polite">{currentTicket.queueNumber}</h2>
+                      <h2 className="text-6xl sm:text-[7rem] lg:text-[8rem] font-black jet-mono text-secondary leading-none whitespace-nowrap" role="status" aria-live="polite">{currentTicket.queueNumber}</h2>
                     </div>
                     <div className={`w-full max-w-md grid ${canTransferCurrent ? 'grid-cols-3' : 'grid-cols-2'} gap-3 sm:gap-4 mx-auto`}>
                       <Button onClick={() => handleAction('complete')} disabled={!canFinishCurrent} className="h-16 sm:h-24 text-base sm:text-lg font-black bg-success hover:bg-success/90 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as complete. Shortcut Enter.">
