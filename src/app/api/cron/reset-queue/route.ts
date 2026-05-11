@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     const [month, day, year] = manilaTimeStr.split('/');
     const manilaDateString = `${year}-${month}-${day}`;
 
+    const adminDb = getAdminDb();
     const batch = adminDb.batch();
 
     // 1. Fetch active tickets and cancel them
