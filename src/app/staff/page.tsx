@@ -16,6 +16,7 @@ import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { canWindowServeTicket } from '@/context/QueueContext';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Switch } from '@/components/ui/switch';
 import { AnimatePresence } from 'framer-motion';
 
 function StaffSetup() {
@@ -141,6 +142,7 @@ function StaffContent() {
     updateTicketStatus, 
     transferTicket,
     transferTicketToWindow,
+    toggleStaffPause,
     isStaff, 
     isAdmin,
     isUserLoading,
@@ -213,7 +215,7 @@ function StaffContent() {
     canWindowServeTicket(staffAssignment.windowNumber, t.college)
   ).length;
 
-  const canCallNext = !!staffCounter && !loading && !isServingTicket && queueCount > 0;
+  const canCallNext = !!staffCounter && !staffCounter.isPaused && !loading && !isServingTicket && queueCount > 0;
   const canFinishCurrent = !!staffCounter && !loading && isServingTicket;
   const canNoShowCurrent = !!staffCounter && !loading && isServingTicket;
 
@@ -402,6 +404,16 @@ function StaffContent() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {staffCounter && (
+              <div className="flex items-center gap-2 mr-2">
+                <span className="text-xs font-black text-muted-foreground uppercase tracking-widest hidden sm:inline-block">Accepting Tickets</span>
+                <Switch 
+                  checked={!staffCounter.isPaused} 
+                  onCheckedChange={(checked) => toggleStaffPause(!checked)} 
+                  aria-label="Toggle accepting tickets"
+                />
+              </div>
+            )}
             {isAdmin && (
               <Button variant="outline" onClick={() => setStaffAssignment(null, null)} className="rounded-xl border-2 font-bold gap-2 text-xs" aria-label="Re-configure terminal assignment">
                 <Settings size={14} /> Re-configure
@@ -416,7 +428,14 @@ function StaffContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
           <div className="lg:col-span-8 space-y-6 sm:space-y-8">
-            <motion.div layout className="liquid-glass rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 flex flex-col items-center justify-center text-center space-y-6 sm:space-y-10 min-h-[350px] sm:min-h-[500px]">
+            <motion.div layout className="relative liquid-glass rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 flex flex-col items-center justify-center text-center space-y-6 sm:space-y-10 min-h-[350px] sm:min-h-[500px] overflow-hidden">
+              {staffCounter?.isPaused && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-md z-10 flex flex-col items-center justify-center space-y-4">
+                  <Coffee size={48} className="text-muted-foreground/60" />
+                  <h2 className="text-2xl font-black text-secondary uppercase tracking-widest">Currently Paused</h2>
+                  <p className="text-sm font-medium text-muted-foreground">Toggle "Accepting Tickets" to resume.</p>
+                </div>
+              )}
               <AnimatePresence mode="wait">
                 {currentTicket && (currentTicket.status === 'CALLED' || currentTicket.status === 'SERVING') ? (
                   <motion.div
