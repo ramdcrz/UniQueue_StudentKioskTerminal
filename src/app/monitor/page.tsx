@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Volume2, Play, Users, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Building2, Volume2, Play, Users, CheckCircle2, AlertCircle, Coffee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -168,7 +168,7 @@ function MonitorContent() {
             <Building2 size={24} className="sm:w-8 sm:h-8" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-secondary uppercase tracking-tight">{currentDepartment?.name ?? 'Loading…'}</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-secondary uppercase tracking-tighter">{currentDepartment?.name ?? 'Loading…'}</h1>
             <p className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${isAudioEnabled ? 'bg-success uq-pulse-dot' : 'bg-destructive'}`} />
               {isAudioEnabled ? 'LIVE BROADCAST ACTIVE' : 'AUDIO MUTED'}
@@ -270,11 +270,28 @@ function MonitorContent() {
                   }
                 })
               ) : (
-                <div className="col-span-full liquid-glass rounded-[2rem] sm:rounded-[3rem] flex items-center justify-center text-center p-8 sm:p-12 h-full">
-                  <p className="text-lg sm:text-2xl font-bold text-muted-foreground opacity-30 uppercase tracking-widest leading-relaxed">
-                    Awaiting next <br /> student call
-                  </p>
-                </div>
+                <motion.div
+                  key="monitor-idle"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="col-span-full liquid-glass rounded-[2rem] sm:rounded-[3rem] flex flex-col items-center justify-center text-center p-8 sm:p-12 h-full space-y-6 sm:space-y-8"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.08, 1], opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                    className="w-20 h-20 sm:w-28 sm:h-28 bg-primary/5 rounded-full flex items-center justify-center"
+                  >
+                    <Coffee size={40} className="sm:w-14 sm:h-14 text-primary/30" />
+                  </motion.div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl sm:text-2xl font-black text-secondary uppercase tracking-tighter">
+                      Welcome
+                    </h3>
+                    <p className="text-sm sm:text-base font-medium text-muted-foreground">
+                      Waiting for the first ticket…
+                    </p>
+                  </div>
+                </motion.div>
               )}
             </AnimatePresence>
           </div>
@@ -315,7 +332,7 @@ function MonitorContent() {
           <div className="mt-auto pt-4 sm:pt-6 border-t flex flex-wrap gap-2">
             {departments.map(d => (
               <button key={d.id} onClick={() => setCurrentDepartment(d.id)}
-                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] font-black rounded-full border transition-all duration-200 uppercase tracking-widest ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground hover:bg-muted/50'}`}
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] font-black rounded-full border transition-all duration-200 uppercase tracking-widest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${currentDepartment?.id === d.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-muted-foreground hover:bg-muted/50'}`}
                 aria-label={`Switch to ${d.name}`}
               >
                 {d.acronym}
