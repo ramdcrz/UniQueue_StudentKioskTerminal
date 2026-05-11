@@ -28,6 +28,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import type { Ticket } from '@/lib/types';
+import { formatEstimatedWait, getWaitTimeEstimate } from '@/lib/wait-time';
 import { QueueValidationError } from '@/firebase/errors';
 
 const PURPOSE_OPTIONS = [
@@ -62,7 +63,7 @@ const COLLEGE_OPTIONS = [
 function KioskContent() {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const { currentDepartment, createTicket, departments, setCurrentDepartment } = useQueue();
+  const { currentDepartment, createTicket, departments, setCurrentDepartment, tickets } = useQueue();
   const { toast } = useToast();
   const [step, setStep] = useState<'welcome' | 'service' | 'details' | 'success'>('welcome');
   const [lastTicket, setLastTicket] = useState<Ticket | null>(null);
@@ -183,6 +184,7 @@ function KioskContent() {
   const statusUrl = typeof window !== 'undefined' && lastTicket?.id
     ? `${window.location.origin}/status/${lastTicket.departmentId}/${lastTicket.id}`
     : '';
+  const waitEstimate = lastTicket ? getWaitTimeEstimate(tickets, lastTicket) : null;
 
   return (
     <>
@@ -396,6 +398,12 @@ function KioskContent() {
                         {lastTicket.studentName} · {lastTicket.purpose}
                       </p>
                     </div>
+                    {waitEstimate && (
+                      <div className="w-full rounded-[1.5rem] border border-primary/10 bg-primary/5 px-4 py-4 text-center shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">Estimated Wait</p>
+                        <p className="mt-1 text-2xl sm:text-3xl font-black text-secondary">{formatEstimatedWait(waitEstimate.estimatedWaitMinutes)}</p>
+                      </div>
+                    )}
                     <div className="bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border">
                       {statusUrl && <QRCodeSVG value={statusUrl} size={160} level="H" />}
                     </div>

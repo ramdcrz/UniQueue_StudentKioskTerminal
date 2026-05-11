@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, UserCheck, Home, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { formatEstimatedWait, getWaitTimeEstimate } from '@/lib/wait-time';
 
 function StatusContent() {
   const { deptId, ticketId } = useParams();
@@ -73,13 +74,7 @@ function StatusContent() {
   const department = departments.find(d => d.id === ticket.departmentId);
   const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
   const windowNumber = counter?.windowNumber ?? counter?.counterNumber ?? '...';
-  
-  const waitingAhead = tickets.filter(t => 
-    t.status === 'WAITING' && 
-    t.departmentId === ticket.departmentId && 
-    t.serviceType === ticket.serviceType &&
-    new Date(t.createdAt).getTime() < new Date(ticket.createdAt).getTime()
-  ).length;
+  const waitEstimate = getWaitTimeEstimate(tickets, ticket);
 
   const getStatusConfig = () => {
     if (!ticket?.status) return { color: 'bg-muted text-muted-foreground', icon: Clock, label: 'Unknown' };
@@ -139,12 +134,12 @@ function StatusContent() {
                     <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Ahead of You</p>
                     <div className="flex items-baseline gap-1">
                       <motion.span 
-                        key={waitingAhead}
+                          key={waitEstimate.waitingAhead}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="text-2xl sm:text-3xl font-black text-secondary"
                       >
-                        {waitingAhead}
+                          {waitEstimate.waitingAhead}
                       </motion.span>
                       <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Students</span>
                     </div>
@@ -153,12 +148,12 @@ function StatusContent() {
                     <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Est. Wait</p>
                     <div className="flex items-baseline gap-1">
                       <motion.span 
-                        key={waitingAhead * 5}
+                          key={Math.round(waitEstimate.estimatedWaitMinutes)}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="text-2xl sm:text-3xl font-black text-secondary"
                       >
-                        ~{waitingAhead * 5}
+                          {formatEstimatedWait(waitEstimate.estimatedWaitMinutes)}
                       </motion.span>
                       <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Mins</span>
                     </div>
@@ -184,7 +179,7 @@ function StatusContent() {
             {(ticket.status === 'CALLED' || ticket.status === 'SERVING') && (
               <motion.div key="called" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="bg-success p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] text-white text-center shadow-xl space-y-3">
                 <UserCheck size={40} className="mx-auto sm:w-12 sm:h-12" />
-                <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight">IT'S YOUR TURN!</h3>
+                <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight">IT IS YOUR TURN!</h3>
                 <p className="text-xs sm:text-sm font-bold opacity-90 uppercase tracking-widest">Please proceed to Counter {windowNumber}</p>
               </motion.div>
             )}
