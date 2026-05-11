@@ -25,6 +25,7 @@ export interface User {
   windowNumber?: number;
   routingDepartment?: RoutingDepartment;
   email?: string;
+  photoURL?: string;
 }
 
 export interface Counter {
@@ -60,4 +61,7 @@ export interface Ticket {
   completedAt?: string;
   csat?: CSATScore;
   csatRecordedAt?: string;
+  staffId?: string;
+  staffName?: string;
+  staffPhotoURL?: string;
 }

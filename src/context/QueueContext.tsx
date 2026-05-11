@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Department, Ticket, Counter, ServiceType, TicketStatus, User as AppUser, RoutingDepartment, CSATScore } from '@/lib/types';
 import { endOfDay, startOfDay } from 'date-fns';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { 
   collection, 
   onSnapshot, 
@@ -98,12 +99,14 @@ function getTicketRoutingDepartment(ticket: Ticket) {
 }
 
 function getLocalDayWindow(now = new Date()) {
-  const start = startOfDay(now);
-  const end = endOfDay(now);
+  const timeZone = 'Asia/Manila';
+  const zonedNow = toZonedTime(now, timeZone);
+  const start = startOfDay(zonedNow);
+  const end = endOfDay(zonedNow);
 
   return {
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
+    startIso: fromZonedTime(start, timeZone).toISOString(),
+    endIso: fromZonedTime(end, timeZone).toISOString(),
   };
 }
 
@@ -169,13 +172,19 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const userRef = doc(db, 'users', user.uid);
     return onSnapshot(userRef, (snapshot) => {
       if (snapshot.exists()) {
-        setCurrentUserProfile({ ...snapshot.data(), id: snapshot.id } as AppUser);
+        const data = snapshot.data();
+        setCurrentUserProfile({ ...data, id: snapshot.id } as AppUser);
+        // Keep photoURL in sync with Google profile
+        if (user.photoURL && data.photoURL !== user.photoURL) {
+          updateDoc(userRef, { photoURL: user.photoURL });
+        }
       } else {
         const initialData = {
           id: user.uid,
           name: user.displayName || user.email?.split('@')[0] || 'Faculty Member',
           role: isAdmin ? 'SUPERADMIN' : (isStaff ? 'STAFF' : 'KIOSK'),
-          email: user.email || ''
+          email: user.email || '',
+          photoURL: user.photoURL || ''
         };
         setDoc(userRef, initialData);
       }
@@ -280,8 +289,20 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     const ticketRef = doc(db, 'departments', deptId, 'tickets', ticketId);
     const updates: any = { status, updatedAt: new Date().toISOString() };
-    if (status === 'CALLED') updates.calledAt = new Date().toISOString();
-    if (status === 'COMPLETED' || status === 'Finish' || status === 'NOSHOW' || status === 'CANCELLED') updates.completedAt = new Date().toISOString();
+    if (status === 'CALLED') {
+      updates.calledAt = new Date().toISOString();
+      updates.staffId = user?.uid || null;
+      updates.staffName = currentUserProfile?.name || user?.displayName || user?.email?.split('@')[0] || 'Unknown Staff';
+      updates.staffPhotoURL = currentUserProfile?.photoURL || user?.photoURL || null;
+    }
+    if (status === 'COMPLETED' || status === 'Finish' || status === 'NOSHOW' || status === 'CANCELLED') {
+      updates.completedAt = new Date().toISOString();
+      if (!ticket?.staffId) {
+        updates.staffId = user?.uid || null;
+        updates.staffName = currentUserProfile?.name || user?.displayName || user?.email?.split('@')[0] || 'Unknown Staff';
+        updates.staffPhotoURL = currentUserProfile?.photoURL || user?.photoURL || null;
+      }
+    }
 
     updateDoc(ticketRef, updates).catch((err) => {
       console.error("Failed to update ticket", err);

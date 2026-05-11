@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { endOfDay, startOfDay } from 'date-fns';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { z } from 'zod';
 
 import { getOrchestratorFirestore, getDateRange } from '@/lib/ai/firestore';
@@ -20,14 +21,16 @@ function parseTimestamp(value: string | undefined): number | null {
 }
 
 function getLocalDayWindow(now = new Date()) {
-  const start = startOfDay(now);
-  const end = endOfDay(now);
+  const timeZone = 'Asia/Manila';
+  const zonedNow = toZonedTime(now, timeZone);
+  const start = startOfDay(zonedNow);
+  const end = endOfDay(zonedNow);
 
   return {
-    start,
-    end,
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
+    start: fromZonedTime(start, timeZone),
+    end: fromZonedTime(end, timeZone),
+    startIso: fromZonedTime(start, timeZone).toISOString(),
+    endIso: fromZonedTime(end, timeZone).toISOString(),
   };
 }
 
@@ -226,6 +229,8 @@ export const getAvgTransactionTimeByStaff = tool({
       string,
       {
         staffId: string;
+        staffName: string;
+        staffPhotoURL: string;
         totalTimeMs: number;
         count: number;
         calledAt?: string;
@@ -234,7 +239,9 @@ export const getAvgTransactionTimeByStaff = tool({
 
     snapshot.forEach(documentSnapshot => {
       const ticket = documentSnapshot.data() as TicketDocument;
-      const staffId = ticket.counterId || 'unknown'; // Use counterId as proxy for staffId
+      const staffId = ticket.staffId || ticket.counterId || 'unknown';
+      const staffName = ticket.staffName || 'Unknown Staff';
+      const staffPhotoURL = (ticket as any).staffPhotoURL || '';
       const servedAt = parseTimestamp(ticket.servedAt) || parseTimestamp(ticket.calledAt);
       const completedAt = parseTimestamp(ticket.completedAt);
 
@@ -245,6 +252,8 @@ export const getAvgTransactionTimeByStaff = tool({
       if (!staffMetrics[staffId]) {
         staffMetrics[staffId] = {
           staffId,
+          staffName,
+          staffPhotoURL,
           totalTimeMs: 0,
           count: 0,
         };
@@ -259,6 +268,8 @@ export const getAvgTransactionTimeByStaff = tool({
       .filter(s => s.count >= 5)
       .map(s => ({
         staffId: s.staffId,
+        staffName: s.staffName,
+        staffPhotoURL: s.staffPhotoURL,
         avgTransactionTimeMs: Math.round(s.totalTimeMs / s.count),
         avgTransactionTimeMinutes: Number((s.totalTimeMs / s.count / 60000).toFixed(1)),
         completedTickets: s.count,
@@ -303,6 +314,8 @@ export const getStaffEfficiencyRating = tool({
       string,
       {
         staffId: string;
+        staffName: string;
+        staffPhotoURL: string;
         totalTimeMs: number;
         count: number;
         csatPositive: number;
@@ -315,7 +328,9 @@ export const getStaffEfficiencyRating = tool({
 
     snapshot.forEach(documentSnapshot => {
       const ticket = documentSnapshot.data() as TicketDocument;
-      const staffId = ticket.counterId || 'unknown';
+      const staffId = ticket.staffId || ticket.counterId || 'unknown';
+      const staffName = ticket.staffName || 'Unknown Staff';
+      const staffPhotoURL = (ticket as any).staffPhotoURL || '';
       const servedAt = parseTimestamp(ticket.servedAt) || parseTimestamp(ticket.calledAt);
       const completedAt = parseTimestamp(ticket.completedAt);
 
@@ -328,6 +343,8 @@ export const getStaffEfficiencyRating = tool({
       if (!staffMetrics[staffId]) {
         staffMetrics[staffId] = {
           staffId,
+          staffName,
+          staffPhotoURL,
           totalTimeMs: 0,
           count: 0,
           csatPositive: 0,
@@ -373,6 +390,8 @@ export const getStaffEfficiencyRating = tool({
 
         return {
           staffId: s.staffId,
+          staffName: s.staffName,
+          staffPhotoURL: s.staffPhotoURL,
           avgTransactionTimeMs: Math.round(avgTimeMs),
           avgTransactionTimeMinutes: Number((avgTimeMs / 60000).toFixed(1)),
           speedScore,

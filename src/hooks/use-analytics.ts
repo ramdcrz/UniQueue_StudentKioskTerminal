@@ -11,6 +11,7 @@ export interface AnalyticsData {
     byStaff: Array<{
       staffId: string;
       staffName: string;
+      staffPhotoURL?: string;
       avgTimeMinutes: number;
       completedTickets: number;
     }>;
@@ -18,6 +19,7 @@ export interface AnalyticsData {
   efficiency: Array<{
     staffId: string;
     staffName: string;
+    staffPhotoURL?: string;
     speedScore: number;
     csatScore: number;
     efficiencyRating: number;

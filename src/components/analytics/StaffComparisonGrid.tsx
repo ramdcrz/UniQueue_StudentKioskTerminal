@@ -4,10 +4,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn, formatDuration } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 export interface StaffMetric {
   staffId: string;
   staffName?: string;
+  staffPhotoURL?: string;
   avgTransactionTimeMinutes?: number;
   efficiencyRating?: number;
   speedScore?: number;
@@ -148,7 +150,13 @@ export function StaffComparisonGrid({
                 {displayedMetrics.map(staff => (
                   <TableRow key={staff.staffId} className="hover:bg-muted/50">
                     <TableCell className="font-medium">
-                      {staff.staffName || staff.staffId}
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="w-7 h-7 shrink-0">
+                          <AvatarImage src={staff.staffPhotoURL || ''} alt={staff.staffName || staff.staffId} className="object-cover" />
+                          <AvatarFallback className="bg-secondary/10 text-secondary text-[10px] font-black">{(staff.staffName || staff.staffId || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span>{staff.staffName || staff.staffId}</span>
+                      </div>
                     </TableCell>
 
                     {showMetrics.includes('efficiency') && (

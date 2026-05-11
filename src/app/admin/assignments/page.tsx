@@ -5,7 +5,8 @@ import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldAlert, User, ArrowLeft, Save, Crown, Loader2, Search, Filter } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, Save, Crown, Loader2, Search, Filter } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ServiceType } from '@/lib/types';
@@ -242,9 +243,10 @@ function AssignmentsContent() {
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
                     {/* User info */}
                     <div className="flex items-center gap-4 lg:w-[280px] shrink-0">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-secondary to-secondary/80 flex items-center justify-center text-white shadow-sm shrink-0">
-                        <User size={20} className="sm:w-6 sm:h-6" />
-                      </div>
+                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl shadow-sm shrink-0">
+                        <AvatarImage src={u.photoURL || ''} alt={u.name} className="object-cover" />
+                        <AvatarFallback className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-secondary to-secondary/80 text-white font-black text-sm">{(u.name || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
                       <div className="min-w-0">
                         <h3 className="font-black text-secondary uppercase leading-none text-sm sm:text-base truncate mb-1">{u.name}</h3>
                         <div className="flex flex-wrap items-center gap-2">
