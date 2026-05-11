@@ -10,6 +10,7 @@ import {
   doc, 
   setDoc,
   updateDoc,
+  writeBatch,
   query, 
   orderBy,
   getDoc,
@@ -28,10 +29,13 @@ interface QueueContextType {
   tickets: Ticket[];
   allUsers: AppUser[];
   currentDepartment: Department | null;
+  currentUserProfile: AppUser | null;
   setCurrentDepartment: (deptId: string) => void;
   createTicket: (ticketData: { serviceType: ServiceType; studentName: string; purpose: string; college?: string }) => Promise<Ticket>;
   callNextTicket: (counterId: string) => void;
   updateTicketStatus: (ticketId: string, status: TicketStatus, departmentId?: string) => void;
+  transferTicket: (ticketId: string, destinationServiceType: ServiceType) => Promise<void>;
+  transferTicketToWindow: (ticketId: string, targetCounterId: string) => Promise<void>;
   submitCsat: (ticketId: string, score: CSATScore, departmentId?: string) => void;
   staffCounter: Counter | null;
   setStaffCounter: (counterId: string | null) => void;
@@ -289,6 +293,85 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const transferTicket = async (ticketId: string, destinationServiceType: ServiceType) => {
+    if (!db) return;
+
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket || ticket.serviceType === destinationServiceType) return;
+
+    const sourceDeptId = ticket.departmentId || currentDeptId;
+    const sourceTicketRef = doc(db, 'departments', sourceDeptId, 'tickets', ticketId);
+    const sourceCounter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticketId);
+    const batch = writeBatch(db);
+    const nowIso = new Date().toISOString();
+
+    batch.update(sourceTicketRef, {
+      serviceType: destinationServiceType,
+      routingDepartment: ROUTING_BY_SERVICE[destinationServiceType],
+      status: 'WAITING',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      counterId: null,
+      calledAt: null,
+      servedAt: null,
+      completedAt: null,
+      csat: null,
+      csatRecordedAt: null,
+    });
+
+    if (sourceCounter) {
+      const sourceCounterRef = doc(db, 'departments', sourceCounter.departmentId, 'counters', sourceCounter.id);
+      batch.update(sourceCounterRef, {
+        status: 'VACANT',
+        currentTicketId: null,
+      });
+    }
+
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error('Failed to transfer ticket', err);
+      throw err;
+    }
+  };
+
+  const transferTicketToWindow = async (ticketId: string, targetCounterId: string) => {
+    if (!db) return;
+
+    const ticket = tickets.find(t => t.id === ticketId);
+    const targetCounter = counters.find(c => c.id === targetCounterId);
+
+    if (!ticket || !targetCounter) return;
+    if (ticket.departmentId !== targetCounter.departmentId) return;
+
+    const ticketRef = doc(db, 'departments', ticket.departmentId, 'tickets', ticketId);
+    const sourceCounter = ticket.counterId ? counters.find(c => c.id === ticket.counterId) : null;
+    const batch = writeBatch(db);
+    const nowIso = new Date().toISOString();
+
+    batch.update(ticketRef, {
+      counterId: targetCounterId,
+      status: 'WAITING',
+      updatedAt: nowIso,
+      calledAt: null,
+    });
+
+    if (sourceCounter) {
+      const sourceCounterRef = doc(db, 'departments', sourceCounter.departmentId, 'counters', sourceCounter.id);
+      batch.update(sourceCounterRef, {
+        status: 'VACANT',
+        currentTicketId: null,
+      });
+    }
+
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error('Failed to transfer ticket to window', err);
+      throw err;
+    }
+  };
+
   const submitCsat = (ticketId: string, score: CSATScore, departmentId?: string) => {
     if (!db) return;
     const ticket = tickets.find(t => t.id === ticketId);
@@ -404,8 +487,9 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <QueueContext.Provider value={{ 
-      departments, counters, tickets, allUsers: visibleUsers, currentDepartment, 
+      departments, counters, tickets, allUsers: visibleUsers, currentDepartment, currentUserProfile,
       setCurrentDepartment: setCurrentDeptId, createTicket, callNextTicket, updateTicketStatus,
+      transferTicket, transferTicketToWindow,
       submitCsat,
       staffCounter, setStaffCounter: setStaffCounterId, staffAssignment, setStaffAssignment,
       updateUserAssignment, isUserLoading, loginWithGoogle, logout, isAdmin, isStaff

@@ -1,5 +1,5 @@
 
-export type Role = 'SUPERADMIN' | 'DEPTADMIN' | 'STAFF' | 'KIOSK' | 'MONITOR';
+export type Role = 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'KIOSK' | 'MONITOR';
 
 export type ServiceType = 'CASHIER' | 'ACCOUNTING';
 export type RoutingDepartment = 'REGISTRAR' | 'ACCOUNTING_CASHIER' | 'CASHIER' | 'ACCOUNTING';

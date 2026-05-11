@@ -5,18 +5,30 @@ import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldAlert, User, ArrowLeft, Save } from 'lucide-react';
+import { ShieldAlert, User, ArrowLeft, Save, Crown, Loader2, Search, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ServiceType } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 function AssignmentsContent() {
-  const { allUsers, departments, updateUserAssignment, isAdmin, isUserLoading } = useQueue();
+  const { allUsers, departments, updateUserAssignment, isAdmin, isUserLoading, isStaff, currentUserProfile } = useQueue();
   const { toast } = useToast();
+  const db = useFirestore();
   const [localAssignments, setLocalAssignments] = useState<Record<string, { deptId: string | null, serviceType: ServiceType | null }>>({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [upgradingUserId, setUpgradingUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'STAFF' | 'ADMIN' | 'SUPERADMIN'>('ALL');
+  const [pendingDemotion, setPendingDemotion] = useState<{ userId: string; name: string; newRole: 'STAFF' | 'ADMIN' | 'SUPERADMIN' } | null>(null);
+
+  const isSuperadmin = isAdmin && isStaff;
 
   if (isUserLoading) {
     return (
@@ -58,7 +70,13 @@ function AssignmentsContent() {
     );
   }
 
-  const staffUsers = allUsers.filter(u => u.role === 'STAFF' || u.role === 'SUPERADMIN');
+  const staffUsers = allUsers.filter(u => u.role === 'STAFF' || u.role === 'ADMIN' || u.role === 'SUPERADMIN');
+  
+  const filteredUsers = staffUsers.filter(u => {
+    const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
 
   const handleUpdate = async (userId: string) => {
     const assignment = localAssignments[userId];
@@ -79,6 +97,90 @@ function AssignmentsContent() {
     return localAssignments[userId] || { deptId: user.departmentId || null, serviceType: user.serviceType || null };
   };
 
+  const handleChangeRole = async (userId: string, newRole: 'STAFF' | 'ADMIN' | 'SUPERADMIN', isDemotion: boolean = false) => {
+    if (!db || !isSuperadmin) return;
+
+    // Prevent self-demotion
+    if (isDemotion && userId === currentUserProfile?.id) {
+      toast({
+        title: 'Cannot Self-Demote',
+        description: 'You cannot demote yourself. Another Superadmin must do it.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // For demotions, show confirmation modal
+    if (isDemotion) {
+      const user = allUsers.find(u => u.id === userId);
+      setPendingDemotion({ userId, name: user?.name || 'User', newRole });
+      return;
+    }
+
+    // For promotions, execute immediately
+    setUpgradingUserId(userId);
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { role: newRole });
+      const roleLabels = { STAFF: 'Staff', ADMIN: 'Admin', SUPERADMIN: 'Superadmin' };
+      toast({ title: 'Role Changed', description: `User promoted to ${roleLabels[newRole]}.`, variant: 'success' as any });
+    } catch (error) {
+      toast({ title: 'Role Change Failed', description: 'Could not change role. Please try again.', variant: 'destructive' });
+      console.error('Role change failed', error);
+    } finally {
+      setUpgradingUserId(null);
+    }
+  };
+
+  const confirmDemotion = async () => {
+    if (!pendingDemotion || !db) return;
+    setUpgradingUserId(pendingDemotion.userId);
+    try {
+      const userRef = doc(db, 'users', pendingDemotion.userId);
+      await updateDoc(userRef, { role: pendingDemotion.newRole });
+      const roleLabels = { STAFF: 'Staff', ADMIN: 'Admin', SUPERADMIN: 'Superadmin' };
+      toast({
+        title: 'Role Changed',
+        description: `${pendingDemotion.name} demoted to ${roleLabels[pendingDemotion.newRole]}.`,
+        variant: 'success' as any,
+      });
+    } catch (error) {
+      toast({ title: 'Demotion Failed', description: 'Could not change role. Please try again.', variant: 'destructive' });
+      console.error('Demotion failed', error);
+    } finally {
+      setUpgradingUserId(null);
+      setPendingDemotion(null);
+    }
+  };
+
+  const getAvailableRoles = (currentRole: string) => {
+    switch (currentRole) {
+      case 'STAFF':
+        return [{ role: 'ADMIN', isDemotion: false }];
+      case 'ADMIN':
+        return [
+          { role: 'STAFF', isDemotion: true },
+          { role: 'SUPERADMIN', isDemotion: false },
+        ];
+      case 'SUPERADMIN':
+        return [{ role: 'ADMIN', isDemotion: true }];
+      default:
+        return [];
+    }
+  };
+
+  const handleRoleChange = (userId: string, newRole: string) => {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) return;
+    
+    const availableRoles = getAvailableRoles(user.role);
+    const selectedRole = availableRoles.find(r => r.role === newRole);
+    
+    if (selectedRole) {
+      handleChangeRole(userId, newRole as 'STAFF' | 'ADMIN' | 'SUPERADMIN', selectedRole.isDemotion);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F4F7] p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8">
@@ -92,13 +194,77 @@ function AssignmentsContent() {
           </div>
         </div>
 
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+            <Input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 rounded-xl border-2 border-primary/20 focus:border-primary h-10 sm:h-11 font-bold"
+              aria-label="Search staff members"
+            />
+          </div>
+          <div className="flex items-center gap-2 min-w-fit">
+            <Filter size={18} className="text-muted-foreground hidden sm:inline" />
+            <Select value={roleFilter} onValueChange={(value: any) => setRoleFilter(value)}>
+              <SelectTrigger className="w-full sm:w-48 rounded-xl border-2 border-primary/20 h-10 sm:h-11 font-bold focus:border-primary">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Roles</SelectItem>
+                <SelectItem value="STAFF">STAFF</SelectItem>
+                <SelectItem value="ADMIN">ADMIN</SelectItem>
+                <SelectItem value="SUPERADMIN">SUPERADMIN</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="text-xs font-bold text-muted-foreground pl-1">
+          {filteredUsers.length} of {staffUsers.length} user{staffUsers.length !== 1 ? 's' : ''}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+            <Input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 rounded-xl border-2 border-primary/20 focus:border-primary h-10 sm:h-11 font-bold"
+              aria-label="Search staff members"
+            />
+          </div>
+          <div className="flex items-center gap-2 min-w-fit">
+            <Filter size={18} className="text-muted-foreground hidden sm:inline" />
+            <Select value={roleFilter} onValueChange={(value: any) => setRoleFilter(value)}>
+              <SelectTrigger className="w-full sm:w-48 rounded-xl border-2 border-primary/20 h-10 sm:h-11 font-bold focus:border-primary">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Roles</SelectItem>
+                <SelectItem value="STAFF">STAFF</SelectItem>
+                <SelectItem value="ADMIN">ADMIN</SelectItem>
+                <SelectItem value="SUPERADMIN">SUPERADMIN</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="text-xs font-bold text-muted-foreground pl-1">
+          {filteredUsers.length} of {staffUsers.length} user{staffUsers.length !== 1 ? 's' : ''}
+        </div>
+
         <div className="grid gap-3 sm:gap-4">
-          {staffUsers.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <Card className="p-8 sm:p-12 text-center glass rounded-2xl sm:rounded-3xl">
-              <p className="text-muted-foreground font-bold italic">No authorized staff found in the system.</p>
+              <p className="text-muted-foreground font-bold italic">No staff found matching your search.</p>
             </Card>
           ) : (
-            staffUsers.map((u) => {
+            filteredUsers.map((u) => {
               const current = getLocal(u.id, u);
               const isSaving = savingUserId === u.id;
               
@@ -158,20 +324,48 @@ function AssignmentsContent() {
                         </div>
                       </div>
 
-                      <Button 
-                        onClick={() => handleUpdate(u.id)}
-                        disabled={isSaving}
-                        className="sm:mt-4 rounded-xl bg-primary font-bold gap-2"
-                        size="sm"
-                        aria-label={`Save assignment for ${u.name}`}
-                      >
-                        {isSaving ? (
-                          <LoadingSpinner size="sm" className="[&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" />
-                        ) : (
-                          <Save size={14} />
+                      <div className="flex flex-wrap gap-2 sm:mt-4 items-end">
+                        {isSuperadmin && getAvailableRoles(u.role).length > 0 && (
+                          <Select
+                            value={u.role}
+                            onValueChange={(newRole) => handleRoleChange(u.id, newRole)}
+                            disabled={upgradingUserId === u.id || (u.id === currentUserProfile?.id && getAvailableRoles(u.role).some(r => r.isDemotion))}
+                          >
+                            <SelectTrigger className="w-40 h-10 sm:h-11 rounded-xl border-2 border-primary/20 font-bold focus:border-primary">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={u.role} disabled>
+                                <span className="font-black text-secondary">{u.role}</span> (current)
+                              </SelectItem>
+                              {getAvailableRoles(u.role).map((option) => {
+                                const isDisabled = option.isDemotion && u.id === currentUserProfile?.id;
+                                return (
+                                  <SelectItem key={option.role} value={option.role} disabled={isDisabled}>
+                                    <span className={option.isDemotion ? 'text-destructive font-bold' : 'text-success font-bold'}>
+                                      {option.isDemotion ? '↓' : '↑'} {option.role}
+                                    </span>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
                         )}
-                        {isSaving ? 'Saving…' : 'Save'}
-                      </Button>
+                        <Button 
+                          onClick={() => handleUpdate(u.id)}
+                          disabled={savingUserId === u.id}
+                          className="rounded-xl bg-primary font-bold gap-2"
+                          size="sm"
+                          aria-label={`Save assignment for ${u.name}`}
+                        >
+                          {savingUserId === u.id ? (
+                            <LoadingSpinner size="sm" className="[&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" />
+                          ) : (
+                            <Save size={14} />
+                          )}
+                          {savingUserId === u.id ? 'Saving…' : 'Save'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -180,6 +374,35 @@ function AssignmentsContent() {
           )}
         </div>
       </div>
+
+      <AlertDialog open={!!pendingDemotion} onOpenChange={(open) => !open && setPendingDemotion(null)}>
+        <AlertDialogContent className="rounded-2xl sm:rounded-3xl glass border-none shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg sm:text-xl font-black text-secondary uppercase tracking-tight">
+              Confirm Demotion
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm sm:text-base text-muted-foreground font-semibold mt-2">
+              Are you sure you want to demote <span className="font-black text-secondary">{pendingDemotion?.name}</span>? They will lose access to administrative features and the analytics dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-end pt-4">
+            <AlertDialogCancel className="rounded-xl border-2 border-muted-foreground/30 font-bold">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDemotion}
+              disabled={upgradingUserId === pendingDemotion?.userId}
+              className="rounded-xl bg-destructive hover:bg-destructive/90 font-bold text-white gap-2 flex items-center"
+            >
+              {upgradingUserId === pendingDemotion?.userId ? (
+                <><Loader2 size={16} className="animate-spin" /> Demoting...</>
+              ) : (
+                <>Confirm Demotion</>
+              )}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
