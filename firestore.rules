@@ -20,6 +20,11 @@ service cloud.firestore {
       );
     }
 
+    function isAdmin() {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null);
+      return isSignedIn() && (userRole == 'ADMIN' || userRole == 'SUPERADMIN' || isSuperadmin());
+    }
+
     function routeForService(serviceType) {
       return serviceType == 'ACCOUNTING' ? 'ACCOUNTING_CASHIER' : 'REGISTRAR';
     }
@@ -88,8 +93,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get, update: if request.auth.uid == userId || isSuperadmin();
-      allow list: if isSuperadmin();
+      allow get, update: if request.auth.uid == userId || isAdmin();
+      allow list: if isAdmin();
       allow create: if isSignedIn();
       allow delete: if isSuperadmin();
     }

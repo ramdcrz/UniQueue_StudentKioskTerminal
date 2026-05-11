@@ -185,38 +185,52 @@ function MonitorContent() {
           <h2 className="text-xs sm:text-sm font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2 px-2" role="heading" aria-level={2}>
             <Volume2 size={16} /> Now Serving
           </h2>
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 min-h-0 overflow-hidden">
+          <div className={`flex-1 grid gap-4 sm:gap-6 min-h-0 ${
+            currentlyServing.length > 2 
+              ? 'grid-cols-2 auto-rows-fr' 
+              : 'grid-cols-1 sm:grid-cols-2 auto-rows-fr'
+          }`}>
             <AnimatePresence mode="popLayout">
               {!isDataReady ? (
                 /* Skeleton loaders while data is loading */
-                <div className="w-full flex flex-col sm:grid sm:grid-cols-2 gap-4">
-                  <Skeleton className="rounded-[2rem] sm:rounded-[3rem] min-h-[200px] sm:min-h-[250px]" />
-                  <Skeleton className="rounded-[2rem] sm:rounded-[3rem] min-h-[200px] sm:min-h-[250px] hidden sm:block" />
+                <div className="col-span-full grid grid-cols-1 sm:grid-cols-2 gap-4 h-full">
+                  <Skeleton className="rounded-[2rem] sm:rounded-[3rem] h-full" />
+                  <Skeleton className="rounded-[2rem] sm:rounded-[3rem] h-full hidden sm:block" />
                 </div>
               ) : currentlyServing.length > 0 ? (
                 currentlyServing.map((ticket) => {
                   const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
                   const windowNumber = counter?.windowNumber ?? counter?.counterNumber ?? '??';
+                  const isCrowded = currentlyServing.length > 2;
+
                   return (
                     <motion.div
                       key={ticket.id}
                       initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      className="liquid-glass rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 flex flex-col items-center justify-center text-center space-y-3 sm:space-y-4 border-2 border-primary/20 shadow-xl"
+                      className={`liquid-glass rounded-[2rem] sm:rounded-[3rem] flex flex-col items-center justify-center text-center border-2 border-primary/20 shadow-xl ${
+                        isCrowded ? 'p-4 sm:p-6 space-y-2' : 'p-6 sm:p-10 space-y-3 sm:space-y-4'
+                      }`}
                     >
-                      <span className="px-4 sm:px-6 py-1.5 sm:py-2 bg-primary/10 text-primary text-[10px] sm:text-xs font-black rounded-full uppercase tracking-widest">
+                      <span className={`bg-primary/10 text-primary font-black rounded-full uppercase tracking-widest ${
+                        isCrowded ? 'px-3 sm:px-4 py-1 text-[9px] sm:text-[10px]' : 'px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-xs'
+                      }`}>
                         {ticket.serviceType}
                       </span>
-                      <div className="text-5xl sm:text-6xl lg:text-[8rem] leading-none font-black jet-mono text-secondary whitespace-nowrap" role="status" aria-live="polite">
+                      <div className={`leading-none font-black jet-mono text-secondary whitespace-nowrap ${
+                        isCrowded ? 'text-4xl sm:text-5xl lg:text-7xl' : 'text-5xl sm:text-6xl lg:text-[8rem]'
+                      }`} role="status" aria-live="polite">
                         {ticket.queueNumber}
                       </div>
-                      <div className="text-xl sm:text-2xl lg:text-4xl font-black text-success uppercase mt-2 sm:mt-4">
+                      <div className={`font-black text-success uppercase ${
+                        isCrowded ? 'text-lg sm:text-xl lg:text-2xl mt-1 sm:mt-2' : 'text-xl sm:text-2xl lg:text-4xl mt-2 sm:mt-4'
+                      }`}>
                         Counter {windowNumber}
                       </div>
                     </motion.div>
                   );
                 })
               ) : (
-                <div className="col-span-1 sm:col-span-2 liquid-glass rounded-[2rem] sm:rounded-[3rem] flex items-center justify-center text-center p-8 sm:p-12">
+                <div className="col-span-full liquid-glass rounded-[2rem] sm:rounded-[3rem] flex items-center justify-center text-center p-8 sm:p-12 h-full">
                   <p className="text-lg sm:text-2xl font-bold text-muted-foreground opacity-30 uppercase tracking-widest leading-relaxed">
                     Awaiting next <br /> student call
                   </p>

@@ -5,10 +5,12 @@ import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { motion } from 'framer-motion';
-import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings, Hash, Coffee } from 'lucide-react';
+import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings, Hash, Coffee, ArrowRightLeft, Loader2 } from 'lucide-react';
+import { ServiceType } from '@/lib/types';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -137,15 +139,20 @@ function StaffContent() {
     callNextTicket, 
     tickets, 
     updateTicketStatus, 
+    transferTicket,
+    transferTicketToWindow,
     isStaff, 
     isAdmin,
     isUserLoading,
     staffAssignment,
-    setStaffAssignment
+    setStaffAssignment,
+    currentDepartment,
   } = useQueue();
   const { user } = useUser();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
   const actionLockRef = useRef(false);
   const lastNextCallAtRef = useRef(0);
 
@@ -168,6 +175,36 @@ function StaffContent() {
   const currentTicket = staffCounter ? tickets.find(t => t.id === staffCounter.currentTicketId) : null;
 
   const isServingTicket = !!currentTicket && (currentTicket.status === 'CALLED' || currentTicket.status === 'SERVING');
+  const canTransferCurrent = !!currentTicket && isServingTicket;
+  
+  const departmentTransferTargets = canTransferCurrent
+    ? Array.from(new Set(tickets.map(t => t.serviceType)))
+        .filter(service => service !== currentTicket?.serviceType)
+    : [];
+  
+  const windowTransferTargets = (() => {
+    if (!canTransferCurrent || !staffAssignment.deptId) return [] as { id: string; label: string }[];
+
+    const seen = new Set<string | number>();
+    const targets: { id: string; label: string }[] = [];
+
+    for (const c of counters) {
+      if (c.departmentId !== staffAssignment.deptId) continue;
+      if (c.id === staffCounter?.id) continue;
+      if (c.status === 'OFFLINE') continue;
+      // Only include counters that can serve the ticket's service type
+      if (currentTicket && c.serviceType !== currentTicket.serviceType) continue;
+
+      const wn = c.windowNumber ?? c.counterNumber ?? null;
+      if (wn == null) continue; // skip unlabeled counters to avoid duplicates like "?"
+      if (seen.has(wn)) continue; // dedupe by window number within the same department
+      seen.add(wn);
+
+      targets.push({ id: c.id, label: `${c.serviceType} Window ${wn}` });
+    }
+
+    return targets;
+  })();
 
   const queueCount = tickets.filter(t => 
     t.status === 'WAITING' && 
@@ -179,6 +216,54 @@ function StaffContent() {
   const canCallNext = !!staffCounter && !loading && !isServingTicket && queueCount > 0;
   const canFinishCurrent = !!staffCounter && !loading && isServingTicket;
   const canNoShowCurrent = !!staffCounter && !loading && isServingTicket;
+
+  const handleTransfer = useCallback(async (destinationServiceType: string) => {
+    if (!currentTicket || !canTransferCurrent || isTransferring) return;
+
+    setIsTransferring(true);
+    try {
+      await transferTicket(currentTicket.id, destinationServiceType as ServiceType);
+      setIsTransferOpen(false);
+      toast({
+        title: 'Ticket Transferred',
+        description: `Ticket ${currentTicket.queueNumber} moved to ${destinationServiceType}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Transfer Failed',
+        description: 'Unable to move the ticket. Please try again.',
+        variant: 'destructive',
+      });
+      console.error('Transfer failed', error);
+    } finally {
+      setIsTransferring(false);
+    }
+  }, [canTransferCurrent, currentTicket, isTransferring, toast, transferTicket]);
+
+  const handleWindowTransfer = useCallback(async (targetCounterId: string) => {
+    if (!currentTicket || !canTransferCurrent || isTransferring) return;
+
+    setIsTransferring(true);
+    try {
+      await transferTicketToWindow(currentTicket.id, targetCounterId);
+      setIsTransferOpen(false);
+      const targetCounter = counters.find(c => c.id === targetCounterId);
+      const windowLabel = `${targetCounter?.serviceType} Window ${targetCounter?.windowNumber ?? targetCounter?.counterNumber ?? '?'}`;
+      toast({
+        title: 'Ticket Transferred',
+        description: `Ticket ${currentTicket.queueNumber} assigned to ${windowLabel}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Transfer Failed',
+        description: 'Unable to move the ticket. Please try again.',
+        variant: 'destructive',
+      });
+      console.error('Window transfer failed', error);
+    } finally {
+      setIsTransferring(false);
+    }
+  }, [canTransferCurrent, currentTicket, counters, isTransferring, toast, transferTicketToWindow]);
 
   const handleAction = useCallback(async (action: 'next' | 'complete' | 'noshow') => {
     if (!staffCounter || loading || actionLockRef.current) return;
@@ -225,7 +310,8 @@ function StaffContent() {
     loading,
     staffCounter,
     toast,
-    updateTicketStatus
+    updateTicketStatus,
+    handleWindowTransfer
   ]);
 
   useEffect(() => {
@@ -342,9 +428,9 @@ function StaffContent() {
                   >
                     <div className="space-y-2">
                       <p className="text-xs sm:text-sm font-black text-primary uppercase tracking-[0.3em]">Currently Serving</p>
-                      <h2 className="text-6xl sm:text-[8rem] lg:text-[10rem] font-black jet-mono text-secondary leading-none whitespace-nowrap" role="status" aria-live="polite">{currentTicket.queueNumber}</h2>
+                      <h2 className="text-6xl sm:text-[7rem] lg:text-[8rem] font-black jet-mono text-secondary leading-none whitespace-nowrap" role="status" aria-live="polite">{currentTicket.queueNumber}</h2>
                     </div>
-                    <div className="w-full max-w-md grid grid-cols-2 gap-3 sm:gap-4 mx-auto">
+                    <div className={`w-full max-w-md grid ${canTransferCurrent ? 'grid-cols-3' : 'grid-cols-2'} gap-3 sm:gap-4 mx-auto`}>
                       <Button onClick={() => handleAction('complete')} disabled={!canFinishCurrent} className="h-16 sm:h-24 text-base sm:text-lg font-black bg-success hover:bg-success/90 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as complete. Shortcut Enter.">
                         {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <CheckCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} Finish
                         <span className="text-[10px] sm:text-xs font-semibold opacity-80"></span>
@@ -353,6 +439,17 @@ function StaffContent() {
                         {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <AlertCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} No Show
                         <span className="text-[10px] sm:text-xs font-semibold opacity-80"></span>
                       </Button>
+                      {canTransferCurrent && (
+                        <Button
+                          onClick={() => setIsTransferOpen(true)}
+                          variant="outline"
+                          className="h-16 sm:h-24 text-base sm:text-lg font-black rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4 border-white/60 bg-white/35 text-secondary hover:bg-secondary hover:text-white transition-all duration-300"
+                          aria-label="Transfer current ticket to another service"
+                        >
+                          <ArrowRightLeft size={28} className="mb-1 sm:w-8 sm:h-8" /> Transfer
+                          <span className="text-[10px] sm:text-xs font-semibold opacity-80"></span>
+                        </Button>
+                      )}
                     </div>
                   </motion.div>
                 ) : queueCount === 0 ? (
@@ -451,6 +548,65 @@ function StaffContent() {
           </div>
         </div>
       </div>
+
+        <Dialog open={isTransferOpen} onOpenChange={setIsTransferOpen}>
+          <DialogContent className="sm:max-w-sm rounded-[2rem] border-white/50 bg-white/90 backdrop-blur-xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black text-secondary uppercase tracking-tight">Transfer Ticket</DialogTitle>
+              <DialogDescription className="text-sm font-medium text-muted-foreground">
+                Move {currentTicket?.queueNumber} to a different service queue.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              {departmentTransferTargets.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Transfer to Department</p>
+                  {departmentTransferTargets.map((serviceType) => (
+                    <Button
+                      key={`dept-${serviceType}`}
+                      variant="outline"
+                      disabled={isTransferring}
+                      onClick={() => void handleTransfer(serviceType)}
+                      className="w-full justify-between rounded-2xl border-2 border-primary/15 bg-white/70 px-4 py-4 text-sm font-black text-secondary hover:bg-primary hover:text-white transition-all duration-300"
+                    >
+                      <span className="flex items-center gap-3">
+                        <Building2 size={16} /> {serviceType}
+                      </span>
+                      {isTransferring ? <Loader2 size={16} className="animate-spin" /> : <ArrowRightLeft size={16} />}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {windowTransferTargets.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Transfer to Window (Same Dept)</p>
+                  {windowTransferTargets.map((window) => (
+                    <Button
+                      key={`window-${window.id}`}
+                      variant="outline"
+                      disabled={isTransferring}
+                      onClick={() => void handleWindowTransfer(window.id)}
+                      className="w-full justify-between rounded-2xl border-2 border-success/15 bg-white/70 px-4 py-4 text-sm font-black text-secondary hover:bg-success hover:text-white transition-all duration-300"
+                    >
+                      <span className="flex items-center gap-3">
+                        <ArrowRightLeft size={16} /> {window.label}
+                      </span>
+                      {isTransferring ? <Loader2 size={16} className="animate-spin" /> : <ArrowRightLeft size={16} />}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {departmentTransferTargets.length === 0 && windowTransferTargets.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
+                  No transfer options available for this ticket.
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }
