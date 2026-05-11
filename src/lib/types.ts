@@ -35,6 +35,7 @@ export interface Counter {
   serviceType: ServiceType;
   routingDepartment?: RoutingDepartment;
   status: CounterStatus;
+  isPaused?: boolean;
   assignedStaffId?: string;
   currentTicketId?: string | null;
 }

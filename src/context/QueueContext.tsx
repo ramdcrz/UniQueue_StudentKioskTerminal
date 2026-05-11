@@ -39,6 +39,7 @@ interface QueueContextType {
   submitCsat: (ticketId: string, score: CSATScore, departmentId?: string) => void;
   staffCounter: Counter | null;
   setStaffCounter: (counterId: string | null) => void;
+  toggleStaffPause: (isPaused: boolean) => Promise<void>;
   staffAssignment: { deptId: string | null; serviceType: ServiceType | null; windowNumber: number | null; routingDepartment: RoutingDepartment | null };
   setStaffAssignment: (deptId: string | null, serviceType: ServiceType | null, windowNumber?: number) => void;
   updateUserAssignment: (userId: string, deptId: string | null, serviceType: ServiceType | null) => void;
@@ -474,6 +475,18 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  const toggleStaffPause = async (isPaused: boolean) => {
+    if (!db || !staffCounterId) return;
+    const counter = counters.find(c => c.id === staffCounterId);
+    if (!counter) return;
+    try {
+      const counterRef = doc(db, 'departments', counter.departmentId, 'counters', counter.id);
+      await updateDoc(counterRef, { isPaused });
+    } catch (err) {
+      console.error('Failed to toggle staff pause', err);
+    }
+  };
+
   const loginWithGoogle = () => {
     if (auth) {
       initiateGoogleSignIn(auth).catch(() => {});
@@ -491,7 +504,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setCurrentDepartment: setCurrentDeptId, createTicket, callNextTicket, updateTicketStatus,
       transferTicket, transferTicketToWindow,
       submitCsat,
-      staffCounter, setStaffCounter: setStaffCounterId, staffAssignment, setStaffAssignment,
+      staffCounter, setStaffCounter: setStaffCounterId, toggleStaffPause, staffAssignment, setStaffAssignment,
       updateUserAssignment, isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
     }}>
       {children}

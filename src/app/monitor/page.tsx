@@ -35,9 +35,15 @@ function MonitorContent() {
   const currentlyServing = useMemo(() => {
     return tickets
       .filter(t => t.departmentId === currentDepartment?.id && (t.status === 'CALLED' || t.status === 'SERVING'))
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 4);
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [tickets, currentDepartment]);
+
+  // Combined Active Display (Tickets + Paused Counters)
+  const activeDisplayItems = useMemo(() => {
+    const pausedCounters = counters.filter(c => c.departmentId === currentDepartment?.id && c.isPaused);
+    const validTickets = currentlyServing.filter(t => !pausedCounters.some(c => c.id === t.counterId));
+    return [...validTickets, ...pausedCounters].slice(0, 4);
+  }, [currentlyServing, counters, currentDepartment]);
 
   // Column 2: Queue (Upcoming students)
   const upcomingQueue = useMemo(() => {
@@ -186,7 +192,7 @@ function MonitorContent() {
             <Volume2 size={16} /> Now Serving
           </h2>
           <div className={`flex-1 grid gap-4 sm:gap-6 min-h-0 ${
-            currentlyServing.length > 2 
+            activeDisplayItems.length > 2 
               ? 'grid-cols-2 auto-rows-fr' 
               : 'grid-cols-1 sm:grid-cols-2 auto-rows-fr'
           }`}>
@@ -197,37 +203,71 @@ function MonitorContent() {
                   <Skeleton className="rounded-[2rem] sm:rounded-[3rem] h-full" />
                   <Skeleton className="rounded-[2rem] sm:rounded-[3rem] h-full hidden sm:block" />
                 </div>
-              ) : currentlyServing.length > 0 ? (
-                currentlyServing.map((ticket) => {
-                  const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
-                  const windowNumber = counter?.windowNumber ?? counter?.counterNumber ?? '??';
-                  const isCrowded = currentlyServing.length > 2;
+              ) : activeDisplayItems.length > 0 ? (
+                activeDisplayItems.map((item) => {
+                  const isTicket = 'queueNumber' in item;
+                  const isCrowded = activeDisplayItems.length > 2;
 
-                  return (
-                    <motion.div
-                      key={ticket.id}
-                      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      className={`liquid-glass rounded-[2rem] sm:rounded-[3rem] flex flex-col items-center justify-center text-center border-2 border-primary/20 shadow-xl ${
-                        isCrowded ? 'p-4 sm:p-6 space-y-2' : 'p-6 sm:p-10 space-y-3 sm:space-y-4'
-                      }`}
-                    >
-                      <span className={`bg-primary/10 text-primary font-black rounded-full uppercase tracking-widest ${
-                        isCrowded ? 'px-3 sm:px-4 py-1 text-[9px] sm:text-[10px]' : 'px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-xs'
-                      }`}>
-                        {ticket.serviceType}
-                      </span>
-                      <div className={`leading-none font-black jet-mono text-secondary whitespace-nowrap ${
-                        isCrowded ? 'text-4xl sm:text-5xl lg:text-7xl' : 'text-5xl sm:text-6xl lg:text-[8rem]'
-                      }`} role="status" aria-live="polite">
-                        {ticket.queueNumber}
-                      </div>
-                      <div className={`font-black text-success uppercase ${
-                        isCrowded ? 'text-lg sm:text-xl lg:text-2xl mt-1 sm:mt-2' : 'text-xl sm:text-2xl lg:text-4xl mt-2 sm:mt-4'
-                      }`}>
-                        Counter {windowNumber}
-                      </div>
-                    </motion.div>
-                  );
+                  if (isTicket) {
+                    const ticket = item as any;
+                    const counter = counters.find(c => c.id === ticket.counterId || c.currentTicketId === ticket.id);
+                    const windowNumber = counter?.windowNumber ?? counter?.counterNumber ?? '??';
+
+                    return (
+                      <motion.div
+                        key={`ticket-${ticket.id}`}
+                        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                        className={`liquid-glass rounded-[2rem] sm:rounded-[3rem] flex flex-col items-center justify-center text-center border-2 border-primary/20 shadow-xl ${
+                          isCrowded ? 'p-4 sm:p-6 space-y-2' : 'p-6 sm:p-10 space-y-3 sm:space-y-4'
+                        }`}
+                      >
+                        <span className={`bg-primary/10 text-primary font-black rounded-full uppercase tracking-widest ${
+                          isCrowded ? 'px-3 sm:px-4 py-1 text-[9px] sm:text-[10px]' : 'px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-xs'
+                        }`}>
+                          {ticket.serviceType}
+                        </span>
+                        <div className={`leading-none font-black jet-mono text-secondary whitespace-nowrap ${
+                          isCrowded ? 'text-4xl sm:text-5xl lg:text-7xl' : 'text-5xl sm:text-6xl lg:text-[8rem]'
+                        }`} role="status" aria-live="polite">
+                          {ticket.queueNumber}
+                        </div>
+                        <div className={`font-black text-success uppercase ${
+                          isCrowded ? 'text-lg sm:text-xl lg:text-2xl mt-1 sm:mt-2' : 'text-xl sm:text-2xl lg:text-4xl mt-2 sm:mt-4'
+                        }`}>
+                          Counter {windowNumber}
+                        </div>
+                      </motion.div>
+                    );
+                  } else {
+                    const counter = item as any;
+                    const windowNumber = counter.windowNumber ?? counter.counterNumber ?? '??';
+
+                    return (
+                      <motion.div
+                        key={`counter-${counter.id}`}
+                        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                        className={`liquid-glass rounded-[2rem] sm:rounded-[3rem] flex flex-col items-center justify-center text-center border-2 border-muted/40 shadow-xl bg-muted/10 ${
+                          isCrowded ? 'p-4 sm:p-6 space-y-2' : 'p-6 sm:p-10 space-y-3 sm:space-y-4'
+                        }`}
+                      >
+                        <span className={`bg-muted/20 text-muted-foreground font-black rounded-full uppercase tracking-widest ${
+                          isCrowded ? 'px-3 sm:px-4 py-1 text-[9px] sm:text-[10px]' : 'px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-xs'
+                        }`}>
+                          {counter.serviceType}
+                        </span>
+                        <div className={`leading-none font-black jet-mono text-muted-foreground whitespace-nowrap opacity-60 ${
+                          isCrowded ? 'text-4xl sm:text-5xl lg:text-7xl' : 'text-5xl sm:text-6xl lg:text-[8rem]'
+                        }`}>
+                          PAUSED
+                        </div>
+                        <div className={`font-black text-muted-foreground uppercase opacity-80 ${
+                          isCrowded ? 'text-lg sm:text-xl lg:text-2xl mt-1 sm:mt-2' : 'text-xl sm:text-2xl lg:text-4xl mt-2 sm:mt-4'
+                        }`}>
+                          Counter {windowNumber}
+                        </div>
+                      </motion.div>
+                    );
+                  }
                 })
               ) : (
                 <div className="col-span-full liquid-glass rounded-[2rem] sm:rounded-[3rem] flex items-center justify-center text-center p-8 sm:p-12 h-full">
