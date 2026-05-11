@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound, Zap, Activity, Percent, Download } from 'lucide-react';
+import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound, Zap, Activity, Percent, Download, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,7 @@ function AdminContent() {
   const { tickets, departments, isAdmin, isUserLoading } = useQueue();
   const [selectedRange, setSelectedRange] = useState<'today' | 7 | 30>('today');
   const [isResetting, setIsResetting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const analytics = useMemo(() => {
     const total = tickets.length;
@@ -59,7 +60,10 @@ function AdminContent() {
     daysBack,
   );
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
     const now = new Date();
     const filterDate = new Date();
     if (selectedRange === 'today') {
@@ -115,6 +119,9 @@ function AdminContent() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleForceReset = async () => {
@@ -212,16 +219,16 @@ function AdminContent() {
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-black text-secondary uppercase tracking-tight">University Analytics</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-secondary uppercase tracking-tighter">University Analytics</h1>
             <p className="text-sm sm:text-base text-muted-foreground font-semibold flex items-center gap-2">
               <Building size={16} /> Live Real-time Enrollment Overview
             </p>
           </div>
           <div className="flex gap-3 sm:gap-4 flex-wrap">
-            <Button onClick={handleExportCSV} variant="default" className="rounded-xl font-bold gap-2 text-xs sm:text-sm shadow-md hover:shadow-lg transition-all" aria-label="Export Analytics to CSV">
-              <Download size={18} />
-              <span className="hidden sm:inline">Export to CSV</span>
-              <span className="sm:hidden">Export</span>
+            <Button onClick={handleExportCSV} variant="default" disabled={isExporting} className="rounded-xl font-bold gap-2 text-xs sm:text-sm shadow-md hover:shadow-lg transition-all" aria-label="Export Analytics to CSV">
+              {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+              <span className="hidden sm:inline">{isExporting ? 'Exporting…' : 'Export to CSV'}</span>
+              <span className="sm:hidden">{isExporting ? '…' : 'Export'}</span>
             </Button>
             <Link href="/admin/assignments">
               <Button variant="outline" className="rounded-xl border-2 border-neutral-200 font-bold gap-2 text-xs sm:text-sm hover:border-[#2563EB] hover:text-[#2563EB] transition-all" aria-label="Manage staff assignments">
@@ -237,7 +244,7 @@ function AdminContent() {
               className="rounded-xl border-destructive/50 text-destructive font-bold gap-2 text-xs sm:text-sm hover:bg-destructive/10 hover:border-destructive transition-all" 
               aria-label="Force Queue Reset"
             >
-              <AlertTriangle size={18} />
+              {isResetting ? <Loader2 size={18} className="animate-spin" /> : <AlertTriangle size={18} />}
               <span className="hidden sm:inline">{isResetting ? 'Resetting...' : 'Force Reset'}</span>
               <span className="sm:hidden">Reset</span>
             </Button>

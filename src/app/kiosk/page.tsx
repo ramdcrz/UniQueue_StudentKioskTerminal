@@ -418,7 +418,7 @@ function KioskContent() {
 
           <div className="mt-6 sm:mt-8 flex justify-center gap-2 flex-wrap">
             {departments.map(d => (
-              <button key={d.id} onClick={() => { setCurrentDepartment(d.id); setStep('welcome'); }} className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] font-bold rounded-full border shadow-sm transition-all duration-200 ${currentDepartment?.id === d.id ? 'bg-secondary text-white' : 'bg-white hover:bg-muted/50'}`} aria-label={`Switch to ${d.name}`}>
+              <button key={d.id} onClick={() => { setCurrentDepartment(d.id); setStep('welcome'); }} className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] font-bold rounded-full border shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${currentDepartment?.id === d.id ? 'bg-secondary text-white' : 'bg-white hover:bg-muted/50'}`} aria-label={`Switch to ${d.name}`}>
                 {d.acronym}
               </button>
             ))}

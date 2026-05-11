@@ -48,7 +48,7 @@ function StaffSetup() {
       <Card className="max-w-xl w-full p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl space-y-6 sm:space-y-8 glass">
         <div className="text-center space-y-2">
           <Building2 size={40} className="mx-auto text-primary sm:w-12 sm:h-12" />
-          <h1 className="text-xl sm:text-2xl font-black text-secondary uppercase tracking-tight">Terminal Config</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-secondary uppercase tracking-tighter">Terminal Config</h1>
           <p className="text-sm sm:text-base text-muted-foreground font-medium">Assign this terminal to a physical counter</p>
         </div>
 
