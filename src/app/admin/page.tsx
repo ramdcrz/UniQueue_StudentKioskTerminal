@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 function AdminContent() {
   const { tickets, departments, isAdmin, isUserLoading } = useQueue();
   const [selectedRange, setSelectedRange] = useState<'today' | 7 | 30>('today');
+  const [isResetting, setIsResetting] = useState(false);
 
   const analytics = useMemo(() => {
     const total = tickets.length;
@@ -116,6 +117,37 @@ function AdminContent() {
     document.body.removeChild(link);
   };
 
+  const handleForceReset = async () => {
+    if (!confirm('Are you sure you want to force a queue reset? This will cancel all active tickets and reset counters.')) return;
+    
+    setIsResetting(true);
+    try {
+      const secret = prompt('Enter CRON_SECRET to authorize this reset:');
+      if (!secret) {
+        setIsResetting(false);
+        return;
+      }
+      
+      const res = await fetch('/api/cron/reset-queue', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${secret}`
+        }
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        alert('Queue reset successful! Date: ' + data.date);
+      } else {
+        alert('Failed: ' + (data.error || data.details || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error triggering reset');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   if (isUserLoading) {
     return (
       <div className="min-h-screen bg-[#F4F4F7] p-4 sm:p-6 lg:p-8" aria-busy="true">
@@ -198,6 +230,17 @@ function AdminContent() {
                 <span className="sm:hidden">Staff</span>
               </Button>
             </Link>
+            <Button 
+              onClick={handleForceReset} 
+              disabled={isResetting}
+              variant="outline" 
+              className="rounded-xl border-destructive/50 text-destructive font-bold gap-2 text-xs sm:text-sm hover:bg-destructive/10 hover:border-destructive transition-all" 
+              aria-label="Force Queue Reset"
+            >
+              <AlertTriangle size={18} />
+              <span className="hidden sm:inline">{isResetting ? 'Resetting...' : 'Force Reset'}</span>
+              <span className="sm:hidden">Reset</span>
+            </Button>
             <div className="bg-white px-3 sm:px-4 py-2 rounded-xl shadow-sm border text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
               <span className="w-2 h-2 bg-success rounded-full uq-pulse-dot" />
               <span className="hidden sm:inline">Live Sync Active</span>

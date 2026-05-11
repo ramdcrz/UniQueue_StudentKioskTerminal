@@ -249,7 +249,8 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newDocRef = doc(ticketsRef);
     
     const buildingTickets = tickets.filter(t => t.departmentId === currentDeptId);
-    const num = (buildingTickets.length + 1).toString().padStart(3, '0');
+    const todayTickets = buildingTickets.filter(t => new Date(t.createdAt) >= new Date(startIso));
+    const num = (todayTickets.length + 1).toString().padStart(3, '0');
     
     const ticketData = {
       queueNumber: `${currentDepartment.code}-${num}`,
