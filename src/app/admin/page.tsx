@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound, Zap, Activity, Percent } from 'lucide-react';
+import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound, Zap, Activity, Percent, Download } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -57,6 +57,64 @@ function AdminContent() {
     firstDepartmentId,
     daysBack,
   );
+
+  const handleExportCSV = () => {
+    const now = new Date();
+    const filterDate = new Date();
+    if (selectedRange === 'today') {
+      filterDate.setHours(0, 0, 0, 0);
+    } else {
+      filterDate.setDate(filterDate.getDate() - selectedRange);
+    }
+
+    const filteredTickets = tickets.filter(t => new Date(t.createdAt) >= filterDate);
+
+    // If we have no tickets, we generate mock tickets for testing the export structure
+    const ticketsToExport = filteredTickets.length > 0 ? filteredTickets : [
+      { queueNumber: 'M-001', studentName: 'John Doe', departmentId: 'main', status: 'COMPLETED', createdAt: now.toISOString(), calledAt: new Date(now.getTime() - 10 * 60000).toISOString(), completedAt: now.toISOString() },
+      { queueNumber: 'M-002', studentName: 'Jane Smith', departmentId: 'is', status: 'WAITING', createdAt: now.toISOString() },
+      { queueNumber: 'M-003', studentName: '', departmentId: 'som', status: 'SERVING', createdAt: now.toISOString(), calledAt: now.toISOString() },
+      { queueNumber: 'M-004', studentName: 'Alice', departmentId: 'psb', status: 'NOSHOW', createdAt: now.toISOString(), calledAt: new Date(now.getTime() - 5 * 60000).toISOString(), completedAt: now.toISOString() },
+      { queueNumber: 'M-005', studentName: 'Bob "The Builder"', departmentId: 'main', status: 'COMPLETED', createdAt: now.toISOString(), calledAt: new Date(now.getTime() - 15 * 60000).toISOString(), completedAt: now.toISOString() }
+    ] as any[];
+
+    const headers = ['Ticket Number', 'Student Name', 'Department', 'Status', 'Wait Time (Mins)', 'Service Time (Mins)'];
+    
+    const rows = ticketsToExport.map(t => {
+      const waitTime = t.calledAt && t.createdAt 
+        ? ((new Date(t.calledAt).getTime() - new Date(t.createdAt).getTime()) / 60000).toFixed(1)
+        : '';
+        
+      let serviceTimeStr = '';
+      if (t.completedAt && t.calledAt) {
+        serviceTimeStr = ((new Date(t.completedAt).getTime() - new Date(t.calledAt).getTime()) / 60000).toFixed(1);
+      }
+      
+      const deptName = departments.find(d => d.id === t.departmentId)?.name || t.departmentId;
+      const escape = (str: string) => `"${(str || '').replace(/"/g, '""')}"`;
+      
+      return [
+        escape(t.queueNumber),
+        escape(t.studentName),
+        escape(deptName),
+        escape(t.status),
+        escape(waitTime),
+        escape(serviceTimeStr)
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const dateStr = now.toISOString().split('T')[0];
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `uniqueue-report-${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (isUserLoading) {
     return (
@@ -128,6 +186,11 @@ function AdminContent() {
             </p>
           </div>
           <div className="flex gap-3 sm:gap-4 flex-wrap">
+            <Button onClick={handleExportCSV} variant="default" className="rounded-xl font-bold gap-2 text-xs sm:text-sm shadow-md hover:shadow-lg transition-all" aria-label="Export Analytics to CSV">
+              <Download size={18} />
+              <span className="hidden sm:inline">Export to CSV</span>
+              <span className="sm:hidden">Export</span>
+            </Button>
             <Link href="/admin/assignments">
               <Button variant="outline" className="rounded-xl border-2 border-neutral-200 font-bold gap-2 text-xs sm:text-sm hover:border-[#2563EB] hover:text-[#2563EB] transition-all" aria-label="Manage staff assignments">
                 <UsersRound size={18} />

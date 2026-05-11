@@ -29,28 +29,28 @@ export async function GET(request: NextRequest) {
         result = await getAvgTransactionTimeByDept.execute({
           departmentId,
           daysBack,
-        });
+        }, { toolCallId: 'internal' } as any);
         break;
 
       case 'avgTransactionTimeByStaff':
         result = await getAvgTransactionTimeByStaff.execute({
           departmentId,
           daysBack,
-        });
+        }, { toolCallId: 'internal' } as any);
         break;
 
       case 'staffEfficiencyRating':
         result = await getStaffEfficiencyRating.execute({
           departmentId,
           daysBack,
-        });
+        }, { toolCallId: 'internal' } as any);
         break;
 
       case 'crossValidationMetric':
         result = await getCrossValidationMetric.execute({
           departmentId,
           daysBack,
-        });
+        }, { toolCallId: 'internal' } as any);
         break;
 
       default:
