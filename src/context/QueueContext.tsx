@@ -22,6 +22,7 @@ import { signOut } from 'firebase/auth';
 import { initiateAnonymousSignIn, initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, QueueValidationError } from '@/firebase/errors';
+import { GlobalNavShortcuts } from '@/components/global-nav-shortcuts';
 
 interface QueueContextType {
   departments: Department[];
@@ -507,6 +508,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       staffCounter, setStaffCounter: setStaffCounterId, toggleStaffPause, staffAssignment, setStaffAssignment,
       updateUserAssignment, isUserLoading, loginWithGoogle, logout, isAdmin, isStaff
     }}>
+      <GlobalNavShortcuts />
       {children}
     </QueueContext.Provider>
   );
