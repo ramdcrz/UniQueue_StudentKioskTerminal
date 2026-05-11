@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -146,6 +146,10 @@ function StaffContent() {
   const { user } = useUser();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const actionLockRef = useRef(false);
+  const lastNextCallAtRef = useRef(0);
+
+  const NEXT_CALL_COOLDOWN_MS = 500;
 
   useEffect(() => {
     if (staffAssignment.deptId && staffAssignment.serviceType && !staffCounter) {
@@ -160,6 +164,100 @@ function StaffContent() {
       }
     }
   }, [counters, staffCounter, setStaffCounter, staffAssignment, user?.uid]);
+
+  const currentTicket = staffCounter ? tickets.find(t => t.id === staffCounter.currentTicketId) : null;
+
+  const isServingTicket = !!currentTicket && (currentTicket.status === 'CALLED' || currentTicket.status === 'SERVING');
+
+  const queueCount = tickets.filter(t => 
+    t.status === 'WAITING' && 
+    t.departmentId === staffAssignment.deptId && 
+    t.serviceType === staffAssignment.serviceType &&
+    canWindowServeTicket(staffAssignment.windowNumber, t.college)
+  ).length;
+
+  const canCallNext = !!staffCounter && !loading && !isServingTicket && queueCount > 0;
+  const canFinishCurrent = !!staffCounter && !loading && isServingTicket;
+  const canNoShowCurrent = !!staffCounter && !loading && isServingTicket;
+
+  const handleAction = useCallback(async (action: 'next' | 'complete' | 'noshow') => {
+    if (!staffCounter || loading || actionLockRef.current) return;
+
+    if (action === 'next') {
+      if (!canCallNext) return;
+      const now = Date.now();
+      if (now - lastNextCallAtRef.current < NEXT_CALL_COOLDOWN_MS) return;
+      lastNextCallAtRef.current = now;
+    } else if (action === 'complete' && !canFinishCurrent) {
+      return;
+    } else if (action === 'noshow' && !canNoShowCurrent) {
+      return;
+    }
+
+    actionLockRef.current = true;
+    setLoading(true);
+    try {
+      if (action === 'next') {
+        await callNextTicket(staffCounter.id);
+        toast({ title: 'Next Student Called', description: 'A new student has been called to your window.' });
+      } else if (action === 'complete' && currentTicket) {
+        updateTicketStatus(currentTicket.id, 'COMPLETED');
+        toast({ title: 'Transaction Complete', description: `Ticket ${currentTicket.queueNumber} marked as completed.`, variant: 'success' as any });
+      } else if (action === 'noshow' && currentTicket) {
+        updateTicketStatus(currentTicket.id, 'NOSHOW');
+        toast({ title: 'No Show', description: `Ticket ${currentTicket.queueNumber} marked as no-show.`, variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Action Failed', description: 'Something went wrong. Please try again.', variant: 'destructive' });
+      console.error('Staff action failed', error);
+    } finally {
+      setTimeout(() => {
+        setLoading(false);
+        actionLockRef.current = false;
+      }, 500);
+    }
+  }, [
+    canCallNext,
+    canFinishCurrent,
+    canNoShowCurrent,
+    callNextTicket,
+    currentTicket,
+    loading,
+    staffCounter,
+    toast,
+    updateTicketStatus
+  ]);
+
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tagName = target.tagName.toLowerCase();
+      return tagName === 'input' || tagName === 'textarea' || target.isContentEditable;
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+
+      if (event.code === 'Space') {
+        event.preventDefault();
+        void handleAction('next');
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        void handleAction('complete');
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        void handleAction('noshow');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleAction]);
 
   if (isUserLoading) return (
     <div className="min-h-screen bg-[#F4F4F7] flex items-center justify-center p-6 sm:p-8" aria-busy="true">
@@ -202,37 +300,6 @@ function StaffContent() {
   }
 
   if (!staffAssignment.deptId || !staffAssignment.serviceType) return <StaffSetup />;
-
-  const currentTicket = staffCounter ? tickets.find(t => t.id === staffCounter.currentTicketId) : null;
-
-  const handleAction = async (action: 'next' | 'complete' | 'noshow') => {
-    if (!staffCounter || loading) return;
-    setLoading(true);
-    try {
-      if (action === 'next') {
-        await callNextTicket(staffCounter.id);
-        toast({ title: 'Next Student Called', description: 'A new student has been called to your window.' });
-      } else if (action === 'complete' && currentTicket) {
-        updateTicketStatus(currentTicket.id, 'COMPLETED');
-        toast({ title: 'Transaction Complete', description: `Ticket ${currentTicket.queueNumber} marked as completed.`, variant: 'success' as any });
-      } else if (action === 'noshow' && currentTicket) {
-        updateTicketStatus(currentTicket.id, 'NOSHOW');
-        toast({ title: 'No Show', description: `Ticket ${currentTicket.queueNumber} marked as no-show.`, variant: 'destructive' });
-      }
-    } catch (error) {
-      toast({ title: 'Action Failed', description: 'Something went wrong. Please try again.', variant: 'destructive' });
-      console.error('Staff action failed', error);
-    } finally {
-      setTimeout(() => setLoading(false), 500);
-    }
-  };
-
-  const queueCount = tickets.filter(t => 
-    t.status === 'WAITING' && 
-    t.departmentId === staffAssignment.deptId && 
-    t.serviceType === staffAssignment.serviceType &&
-    canWindowServeTicket(staffAssignment.windowNumber, t.college)
-  ).length;
 
   return (
     <div className="min-h-screen bg-[#F4F4F7] p-4 sm:p-6 lg:p-8">
@@ -278,11 +345,13 @@ function StaffContent() {
                       <h2 className="text-6xl sm:text-[8rem] lg:text-[10rem] font-black jet-mono text-secondary leading-none whitespace-nowrap" role="status" aria-live="polite">{currentTicket.queueNumber}</h2>
                     </div>
                     <div className="w-full max-w-md grid grid-cols-2 gap-3 sm:gap-4 mx-auto">
-                      <Button onClick={() => handleAction('complete')} disabled={loading} className="h-16 sm:h-24 text-base sm:text-lg font-black bg-success hover:bg-success/90 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as complete">
+                      <Button onClick={() => handleAction('complete')} disabled={!canFinishCurrent} className="h-16 sm:h-24 text-base sm:text-lg font-black bg-success hover:bg-success/90 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as complete. Shortcut Enter.">
                         {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <CheckCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} Finish
+                        <span className="text-[10px] sm:text-xs font-semibold opacity-80"></span>
                       </Button>
-                      <Button onClick={() => handleAction('noshow')} disabled={loading} variant="destructive" className="h-16 sm:h-24 text-base sm:text-lg font-black rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as no show">
+                      <Button onClick={() => handleAction('noshow')} disabled={!canNoShowCurrent} variant="destructive" className="h-16 sm:h-24 text-base sm:text-lg font-black rounded-[1.5rem] sm:rounded-[2rem] shadow-xl flex flex-col pt-3 sm:pt-4" aria-label="Mark ticket as no show. Shortcut Escape.">
                         {loading ? <LoadingSpinner size="sm" className="mb-1 [&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <AlertCircle size={28} className="mb-1 sm:w-8 sm:h-8" />} No Show
+                        <span className="text-[10px] sm:text-xs font-semibold opacity-80"></span>
                       </Button>
                     </div>
                   </motion.div>
@@ -317,12 +386,13 @@ function StaffContent() {
                       <p className="text-sm sm:text-base text-muted-foreground font-medium">Click below to pull the next student</p>
                     </div>
                     <Button 
-                      disabled={queueCount === 0 || loading || !staffCounter}
+                      disabled={!canCallNext}
                       onClick={() => handleAction('next')}
                       className="px-10 sm:px-16 h-16 sm:h-24 text-xl sm:text-2xl font-black bg-success hover:bg-success/90 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl flex items-center gap-4 sm:gap-6 hover:scale-105 transition-all mx-auto"
-                      aria-label={`Call next student. ${queueCount} students waiting.`}
+                      aria-label={`Call next student. ${queueCount} students waiting. Shortcut Space.`}
                     >
                       {loading ? <LoadingSpinner size="md" className="[&_.uq-spinner]:border-white/40 [&_.uq-spinner]:border-t-white" /> : <SkipForward size={32} className="sm:w-10 sm:h-10" />} CALL NEXT
+                      <span className="text-xs sm:text-sm font-semibold opacity-80"></span>
                     </Button>
                   </motion.div>
                 )}
