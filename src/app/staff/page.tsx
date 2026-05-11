@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { motion } from 'framer-motion';
-import { User, LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings, Hash, Coffee, ArrowRightLeft, Loader2 } from 'lucide-react';
+import { LogOut, SkipForward, CheckCircle, AlertCircle, RefreshCw, ShieldAlert, Building2, Settings, Hash, Coffee, ArrowRightLeft, Loader2 } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ServiceType } from '@/lib/types';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
@@ -149,6 +150,7 @@ function StaffContent() {
     staffAssignment,
     setStaffAssignment,
     currentDepartment,
+    currentUserProfile,
   } = useQueue();
   const { user } = useUser();
   const { toast } = useToast();
@@ -394,7 +396,10 @@ function StaffContent() {
       <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-white/40 glass">
           <div className="flex items-center space-x-3 sm:space-x-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg"><User size={20} className="sm:w-6 sm:h-6" /></div>
+            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl shadow-lg">
+              <AvatarImage src={currentUserProfile?.photoURL || user?.photoURL || ''} alt={user?.displayName || 'Staff'} className="object-cover" />
+              <AvatarFallback className="rounded-xl sm:rounded-2xl bg-primary text-white font-black text-sm">{(user?.displayName || 'S').charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
             <div>
               <h1 className="font-black text-secondary uppercase text-sm sm:text-base">{user?.displayName || "Faculty Member"}</h1>
               <p className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-2">

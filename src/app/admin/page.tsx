@@ -5,7 +5,10 @@ import { QueueProvider, useQueue } from '@/context/QueueContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Clock, CheckCircle2, AlertTriangle, TrendingUp, Building, ShieldAlert, UsersRound, Zap, Activity, Percent, Download, Loader2 } from 'lucide-react';
+import { startOfDay, subDays } from 'date-fns';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import Link from 'next/link';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QueueOrchestratorChat } from '@/components/admin/queue-orchestrator-chat';
@@ -22,13 +25,32 @@ function AdminContent() {
   const [isResetting, setIsResetting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const analytics = useMemo(() => {
-    const total = tickets.length;
-    const completed = tickets.filter(t => t.status === 'COMPLETED').length;
-    const waiting = tickets.filter(t => t.status === 'WAITING').length;
-    const noShow = tickets.filter(t => t.status === 'NOSHOW').length;
+  const filteredTickets = useMemo(() => {
+    const timeZone = 'Asia/Manila';
+    const now = new Date();
+    
+    let targetDate = now;
+    if (selectedRange !== 'today') {
+      targetDate = subDays(now, selectedRange - 1);
+    }
+    
+    const zonedStart = toZonedTime(targetDate, timeZone);
+    const startLocal = startOfDay(zonedStart);
+    const minDate = fromZonedTime(startLocal, timeZone);
 
-    const servedTickets = tickets.filter(t => t.status === 'SERVING' || t.status === 'COMPLETED');
+    return tickets.filter(t => {
+      const createdAt = new Date(t.createdAt).getTime();
+      return createdAt >= minDate.getTime();
+    });
+  }, [tickets, selectedRange]);
+
+  const analytics = useMemo(() => {
+    const total = filteredTickets.length;
+    const completed = filteredTickets.filter(t => t.status === 'COMPLETED').length;
+    const waiting = filteredTickets.filter(t => t.status === 'WAITING').length;
+    const noShow = filteredTickets.filter(t => t.status === 'NOSHOW').length;
+
+    const servedTickets = filteredTickets.filter(t => t.status === 'SERVING' || t.status === 'COMPLETED');
     const totalWaitMs = servedTickets.reduce((acc, t) => {
       if (t.calledAt) {
         return acc + (new Date(t.calledAt).getTime() - new Date(t.createdAt).getTime());
@@ -38,9 +60,11 @@ function AdminContent() {
     const avgWaitMins = servedTickets.length > 0 ? (totalWaitMs / servedTickets.length / 60000).toFixed(1) : '0';
 
     const hourlyData: Record<string, number> = {};
-    tickets.forEach(t => {
+    filteredTickets.forEach(t => {
       const date = new Date(t.createdAt);
-      const hour = date.getHours();
+      // Ensure we get the hour in Manila time for the chart
+      const zonedDate = toZonedTime(date, 'Asia/Manila');
+      const hour = zonedDate.getHours();
       const hourStr = `${hour.toString().padStart(2, '0')}:00`;
       hourlyData[hourStr] = (hourlyData[hourStr] || 0) + 1;
     });
@@ -50,7 +74,7 @@ function AdminContent() {
       .sort((a, b) => a.hour.localeCompare(b.hour));
 
     return { total, completed, waiting, noShow, avgWaitMins, chartData };
-  }, [tickets]);
+  }, [filteredTickets]);
 
   // Use analytics hook for real data
   const daysBack = selectedRange === 'today' ? 1 : (selectedRange as any);
@@ -65,14 +89,6 @@ function AdminContent() {
     setIsExporting(true);
     try {
     const now = new Date();
-    const filterDate = new Date();
-    if (selectedRange === 'today') {
-      filterDate.setHours(0, 0, 0, 0);
-    } else {
-      filterDate.setDate(filterDate.getDate() - selectedRange);
-    }
-
-    const filteredTickets = tickets.filter(t => new Date(t.createdAt) >= filterDate);
 
     // If we have no tickets, we generate mock tickets for testing the export structure
     const ticketsToExport = filteredTickets.length > 0 ? filteredTickets : [
@@ -337,9 +353,15 @@ function AdminContent() {
                         <CardContent className="space-y-3">
                           {analyticsData.avgTransactionTime.byStaff.map((staff: any) => (
                             <div key={staff.staffId} className="flex justify-between items-center pb-3 border-b last:border-0">
-                              <div>
-                                <p className="font-semibold text-sm">{staff.staffName}</p>
-                                <p className="text-xs text-muted-foreground">{staff.completedTickets} tickets</p>
+                              <div className="flex items-center gap-2.5">
+                                <Avatar className="w-7 h-7 shrink-0">
+                                  <AvatarImage src={staff.staffPhotoURL || ''} alt={staff.staffName} className="object-cover" />
+                                  <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black">{(staff.staffName || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-semibold text-sm">{staff.staffName}</p>
+                                  <p className="text-xs text-muted-foreground">{staff.completedTickets} tickets</p>
+                                </div>
                               </div>
                               <p className="font-bold text-primary">{formatDuration(staff.avgTimeMinutes)}</p>
                             </div>
@@ -432,7 +454,7 @@ function AdminContent() {
               <h3 className="text-base sm:text-lg font-black text-secondary uppercase mb-4 sm:mb-6">By Building</h3>
               <div className="space-y-4 sm:space-y-6">
                 {departments.map((dept) => {
-                  const deptTickets = tickets.filter(t => t.departmentId === dept.id).length;
+                  const deptTickets = filteredTickets.filter(t => t.departmentId === dept.id).length;
                   const percentage = analytics.total > 0 ? (deptTickets / analytics.total) * 100 : 0;
                   return (
                     <div key={dept.id} className="space-y-2">
